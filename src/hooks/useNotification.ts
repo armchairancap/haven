@@ -36,7 +36,7 @@ const useNotification = () => {
   const { playNotification } = useSound();
   const [isPermissionGranted, setIsPermissionGranted] = useLocalStorage<boolean>(
     'notification-permission',
-    Notification?.permission === 'granted'
+    typeof Notification !== 'undefined' && Notification?.permission === 'granted'
   );
   const notification = useRef<Notification | null>(null);
   const [permissionIgnored, setPermissionIgnored] = useSessionStorage(
@@ -47,7 +47,7 @@ const useNotification = () => {
 
   const notify = useCallback(
     (title: string, options?: NotificationOptions) => {
-      if (isPermissionGranted) {
+      if (isPermissionGranted && typeof Notification !== 'undefined') {
         if (notificationSound?.includes('augh')) {
           triggerEasterEgg(EasterEggs.Masochist);
           setNickname('Masochist');
@@ -98,9 +98,11 @@ const useNotification = () => {
   }, []);
 
   const request = useCallback(() => {
-    Notification.requestPermission().then((permission) =>
-      setIsPermissionGranted(permission === 'granted')
-    );
+    if (typeof Notification !== 'undefined') {
+      Notification.requestPermission().then((permission) =>
+        setIsPermissionGranted(permission === 'granted')
+      );
+    }
   }, [setIsPermissionGranted]);
 
   const dmReceived = useCallback(
