@@ -112,9 +112,13 @@
     "vite-plugin-eslint": "^1.8.1"
   },
   "trustedDependencies": [
+    "@parcel/watcher",
     "@swc/core",
     "core-js-pure",
     "cypress",
-    "esbuild"
+    "esbuild",
+    "netlify-cli",
+    "sharp",
+    "unix-dgram"
   ]
 }
