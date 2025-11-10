@@ -977,23 +977,42 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
       selectedPrivateIdentity: Uint8Array,
       onIsReadyInfoChange: (readinessInfo: IsReadyInfoJSON) => void
     ) => {
-      console.log('Checking registration readiness...');
+      console.log('Connecting to xx network...');
+      let lastProgress = 0;
+
       return new Promise<void>((resolve) => {
         const intervalId = setInterval(() => {
-          if (cmix) {
+          if (!cmix) {
+            console.log('Waiting for network client initialization...');
+            return;
+          }
+
+          try {
             const isReadyInfo = isReadyInfoDecoder(
-              JSON.parse(decoder.decode(cmix?.IsReady(CMIX_NETWORK_READINESS_THRESHOLD)))
+              JSON.parse(decoder.decode(cmix.IsReady(CMIX_NETWORK_READINESS_THRESHOLD)))
             );
+
+            const progress = Math.ceil((isReadyInfo.howClose || 0) * 100);
+            // Log every 10% change to avoid spam
+            if (progress !== lastProgress && progress % 10 === 0) {
+              console.log(`Network readiness: ${progress}% (discovering compatible gateways...)`);
+              lastProgress = progress;
+            }
+
             onIsReadyInfoChange(isReadyInfo);
+
             if (isReadyInfo.isReady) {
               clearInterval(intervalId);
+              console.log('Network ready! Completing registration...');
               setTimeout(() => {
-                console.log('Network ready, creating channel manager...');
+                console.log('Creating channel manager...');
                 createChannelManager(selectedPrivateIdentity);
                 setIsAuthenticated(true);
                 resolve();
               }, 3000);
             }
+          } catch (error) {
+            console.error('Error checking network readiness:', error);
           }
         }, 1000);
       });
