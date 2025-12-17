@@ -27,14 +27,14 @@ const ChannelSettingsView: FC = () => {
     channels.selectors.notificationStatus(currentChannel?.id)
   );
 
-  const toggleDms = useCallback(() => {
+  const toggleDms = useCallback(async () => {
     if (!currentChannel || !channelManager) {
       return;
     }
 
     const fn = dmsEnabled ? 'DisableDirectMessages' : 'EnableDirectMessages';
-    channelManager?.[fn](new Uint8Array(Buffer.from(currentChannel.id, 'base64')));
-  }, [channelManager, currentChannel, dmsEnabled]);
+    await channelManager?.[fn](await utils.Base64ToUint8Array(currentChannel.id));
+  }, [channelManager, currentChannel, dmsEnabled, utils]);
 
   const correctInvalidNotificationStates = useCallback(
     (level = ChannelNotificationLevel.NotifyPing, status = NotificationStatus.WhenOpen) => {
@@ -77,10 +77,10 @@ const ChannelSettingsView: FC = () => {
   );
 
   const changeNotificationLevel = useCallback(
-    (level: ChannelNotificationLevel) => {
+    async (level: ChannelNotificationLevel) => {
       if (currentChannel?.id) {
-        channelManager?.SetMobileNotificationsLevel(
-          utils.Base64ToUint8Array(currentChannel?.id),
+        await channelManager?.SetMobileNotificationsLevel(
+          await utils.Base64ToUint8Array(currentChannel?.id),
           ...correctInvalidNotificationStates(level, notificationStatus)
         );
       }
@@ -107,15 +107,15 @@ const ChannelSettingsView: FC = () => {
   );
 
   const changeNotificationStatus = useCallback(
-    (status: NotificationStatus) => {
+    async (status: NotificationStatus) => {
       if (currentChannel?.id) {
         const level =
           status === NotificationStatus.Mute
             ? ChannelNotificationLevel.NotifyNone
             : notificationLevel || ChannelNotificationLevel.NotifyPing;
 
-        channelManager?.SetMobileNotificationsLevel(
-          utils.Base64ToUint8Array(currentChannel?.id),
+        await channelManager?.SetMobileNotificationsLevel(
+          await utils.Base64ToUint8Array(currentChannel?.id),
           ...correctInvalidNotificationStates(level, status)
         );
       }

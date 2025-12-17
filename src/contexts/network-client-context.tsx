@@ -4,12 +4,12 @@ import {
   DBChannel,
   ChannelJSON,
   ShareURLJSON,
-  IsReadyInfoJSON,
   MessageReceivedEvent,
   ChannelNotificationLevel,
   NotificationStatus,
   MessageStatus,
-  MessageId
+  MessageId,
+  NodeRegistrationReport
 } from 'src/types';
 import { MessageType, PrivacyLevel, type Message, type WithChildren } from 'src/types';
 
@@ -46,13 +46,13 @@ import * as dms from 'src/store/dms';
 import { Channel } from 'src/store/channels/types';
 import usePagination from 'src/hooks/usePagination';
 import useDmClient from 'src/hooks/useDmClient';
+import { clearKVStorage, getKVValue, setKVValue } from 'src/hooks/useKVStorage';
 import {
   channelDecoder,
   identityDecoder,
-  isReadyInfoDecoder,
+  nodeRegistrationReportDecoder,
   pubkeyArrayDecoder,
-  shareUrlDecoder,
-  versionDecoder
+  shareUrlDecoder
 } from '@utils/decoders';
 import useChannelsStorageTag from 'src/hooks/useChannelsStorageTag';
 
@@ -69,12 +69,12 @@ export type User = {
 
 export type ChannelManager = {
   GetID: () => number;
-  AreDMsEnabled: (channelId: Uint8Array) => boolean;
+  AreDMsEnabled: (channelId: Uint8Array) => Promise<boolean>;
   DisableDirectMessages: (channelId: Uint8Array) => void;
   EnableDirectMessages: (channelId: Uint8Array) => void;
   JoinChannel: (prettyPrint: string) => Promise<Uint8Array>;
   LeaveChannel: (channelId: Uint8Array) => Promise<void>;
-  GetMutedUsers: (channelId: Uint8Array) => Uint8Array;
+  GetMutedUsers: (channelId: Uint8Array) => Promise<Uint8Array>;
   Muted: (channelId: Uint8Array) => boolean;
   MuteUser: (
     channelId: Uint8Array,
@@ -117,7 +117,7 @@ export type ChannelManager = {
     cmixParams: Uint8Array,
     tags: Uint8Array
   ) => Promise<Uint8Array>;
-  IsChannelAdmin: (channelId: Uint8Array) => boolean;
+  IsChannelAdmin: (channelId: Uint8Array) => Promise<boolean>;
   GetNotificationLevel: (channelId: Uint8Array) => ChannelNotificationLevel;
   GetNotificationStatus: (channelId: Uint8Array) => NotificationStatus;
   SetMobileNotificationsLevel: (
@@ -131,12 +131,12 @@ export type ChannelManager = {
     privacyLevel: PrivacyLevel
   ) => Promise<string>;
   GetStorageTag: () => string | undefined;
-  SetNickname: (newNickname: string, channel: Uint8Array) => void;
-  GetNickname: (channelId: Uint8Array) => string;
-  GetIdentity: () => Uint8Array;
+  SetNickname: (newNickname: string, channel: Uint8Array) => Promise<void>;
+  GetNickname: (channelId: Uint8Array) => Promise<string>;
+  GetIdentity: () => Promise<Uint8Array>;
   GetShareURL: (cmixId: number, host: string, maxUses: number, channelId: Uint8Array) => Uint8Array;
   JoinChannelFromURL: (url: string, password: string) => Uint8Array;
-  ExportPrivateIdentity: (password: string) => Uint8Array;
+  ExportPrivateIdentity: (password: string) => Promise<Uint8Array>;
   ExportChannelAdminKey: (channelId: Uint8Array, encryptionPassword: string) => Uint8Array;
   ImportChannelAdminKey: (
     channelId: Uint8Array,
@@ -155,7 +155,7 @@ export type NetworkContext = {
   // api
   checkRegistrationReadiness: (
     selectedPrivateIdentity: Uint8Array,
-    onIsReadyInfoChange: (readinessInfo: IsReadyInfoJSON) => void
+    onProgressChange: (registeredNodes: number, totalNodes: number) => void
   ) => Promise<void>;
   pagination: ReturnType<typeof usePagination>;
   createChannel: (
@@ -164,16 +164,16 @@ export type NetworkContext = {
     privacyLevel: 0 | 2,
     enableDms: boolean
   ) => void;
-  decryptMessageContent?: (text: string) => string;
+  decryptMessageContent?: (text: string) => Promise<string>;
   upgradeAdmin: () => void;
   deleteMessage: (message: Pick<Message, 'id' | 'channelId'>) => Promise<void>;
-  exportChannelAdminKeys: (encryptionPassword: string) => string;
-  generateIdentities: (amountOfIdentites: number) => {
+  exportChannelAdminKeys: (encryptionPassword: string) => Promise<string>;
+  generateIdentities: (amountOfIdentites: number) => Promise<{
     codename: string;
     privateIdentity: Uint8Array;
     codeset: number;
     pubkey: string;
-  }[];
+  }[]>;
   joinChannel: (prettyPrint: string, appendToCurrent?: boolean, enabledms?: boolean) => void;
   importChannelAdminKeys: (encryptionPassword: string, privateKeys: string) => void;
   getMutedUsers: () => Promise<User[]>;
@@ -184,20 +184,20 @@ export type NetworkContext = {
   createChannelManager: (privateIdentity: Uint8Array) => Promise<void>;
   loadChannelManager: (storageTag: string, cmix?: CMix) => Promise<void>;
   handleInitialLoadData: () => Promise<void>;
-  getNickName: () => string;
-  setNickname: (nickname: string) => boolean;
+  getNickName: () => Promise<string>;
+  setNickname: (nickname: string) => Promise<boolean>;
   sendReply: (reply: string, replyToMessageId: string, tags?: string[]) => Promise<void>;
   sendReaction: (reaction: string, reactToMessageId: string) => Promise<void>;
-  getPrettyPrint: (channelId: string) => string | undefined;
-  getShareURL: (channelId: string) => ShareURLJSON | null;
-  getShareUrlType: (url: string) => PrivacyLevel | null;
+  getPrettyPrint: (channelId: string) => Promise<string | undefined>;
+  getShareURL: (channelId: string) => Promise<ShareURLJSON | null>;
+  getShareUrlType: (url: string) => Promise<PrivacyLevel | null>;
   joinChannelFromURL: (url: string, password: string) => void;
-  getVersion: () => string | null;
-  getClientVersion: () => string | null;
+  getVersion: () => Promise<string | null>;
+  getClientVersion: () => Promise<string | null>;
   loadMoreChannelData: (channelId: string) => Promise<void>;
   exportPrivateIdentity: (password: string) => Promise<Uint8Array | false>;
   pinMessage: (message: MessageId, unpin?: boolean) => Promise<void>;
-  logout: (password: string) => boolean;
+  logout: (password: string) => Promise<boolean>;
   channelManager?: ChannelManager;
   fetchChannels: () => Promise<void>;
 };
@@ -213,17 +213,37 @@ export const NetworkClientContext = React.createContext<NetworkContext>({
 
 NetworkClientContext.displayName = 'NetworkClientContext';
 
-const getPrettyPrint = (channelId: string) => {
-  const prev = JSON.parse(localStorage.getItem('prettyprints') || '{}');
-  return prev[channelId];
+const getPrettyPrint = async (channelId: string): Promise<string | undefined> => {
+  try {
+    const { getKVValue } = await import('src/hooks/useKVStorage');
+    const prevStr = await getKVValue<string>('prettyprints');
+    if (!prevStr) return undefined;
+    const prev: Record<string, string> = JSON.parse(prevStr);
+    return prev?.[channelId];
+  } catch (err) {
+    console.error('[NetworkClient] Failed to parse prettyprints:', err);
+    return undefined;
+  }
 };
 
-const savePrettyPrint = (channelId: string, prettyPrint: string) => {
-  const prev = JSON.parse(localStorage.getItem('prettyprints') || '{}');
-
-  prev[channelId] = prettyPrint;
-
-  localStorage.setItem('prettyprints', JSON.stringify(prev));
+const savePrettyPrint = async (channelId: string, prettyPrint: string): Promise<void> => {
+  try {
+    const { getKVValue, setKVValue } = await import('src/hooks/useKVStorage');
+    const prevStr = await getKVValue<string>('prettyprints');
+    let prev: Record<string, string> = {};
+    if (prevStr) {
+      try {
+        prev = JSON.parse(prevStr);
+      } catch {
+        // If parsing fails, start with empty object
+        console.warn('[NetworkClient] Corrupted prettyprints data, resetting');
+      }
+    }
+    prev[channelId] = prettyPrint;
+    await setKVValue('prettyprints', JSON.stringify(prev));
+  } catch (err) {
+    console.error('[NetworkClient] Failed to save prettyprint:', err);
+  }
 };
 
 export const NetworkProvider: FC<WithChildren> = (props) => {
@@ -260,10 +280,10 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
   }, [dispatch, currentChannel]);
 
   const fetchIdentity = useCallback(
-    (mngr?: ChannelManager) => {
+    async (mngr?: ChannelManager) => {
       const manager = channelManager || mngr;
       try {
-        const json = decoder.decode(manager?.GetIdentity());
+        const json = decoder.decode(await manager?.GetIdentity());
 
         const parsed = identityDecoder(JSON.parse(json));
 
@@ -285,7 +305,7 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
   );
 
   const getShareURL = useCallback(
-    (channelId: string) => {
+    async (channelId: string) => {
       if (cmix && channelManager && utils && utils.Base64ToUint8Array && channelId) {
         try {
           const currentHostName = window.location.host;
@@ -293,7 +313,7 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
             cmix?.GetID(),
             `http://${currentHostName}/join`,
             0,
-            utils.Base64ToUint8Array(channelId)
+            await utils.Base64ToUint8Array(channelId)
           );
 
           return shareUrlDecoder(JSON.parse(decoder.decode(res)));
@@ -308,10 +328,10 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
   );
 
   const getShareUrlType = useCallback(
-    (url?: string) => {
+    async (url?: string) => {
       if (url && utils && utils.GetShareUrlType) {
         try {
-          const res = utils.GetShareUrlType(url);
+          const res = await utils.GetShareUrlType(url);
           return res;
         } catch (error) {
           return null;
@@ -324,7 +344,10 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
   );
 
   const getPrivacyLevel = useCallback(
-    (channelId: string) => getShareUrlType(getShareURL(channelId)?.url),
+    async (channelId: string) => {
+      const shareURL = await getShareURL(channelId);
+      return await getShareUrlType(shareURL?.url);
+    },
     [getShareURL, getShareUrlType]
   );
 
@@ -332,7 +355,7 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
     async (prettyPrint: string, appendToCurrent = true, enableDms = true) => {
       if (prettyPrint && channelManager && channelManager.JoinChannel) {
         let chanInfo = channelDecoder(
-          JSON.parse(decoder.decode(utils.GetChannelJSON(prettyPrint)))
+          JSON.parse(decoder.decode(await utils.GetChannelJSON(prettyPrint)))
         );
 
         if (currentChannels.find((c) => c.id === chanInfo.receptionId)) {
@@ -350,9 +373,9 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
         const channel: Channel = {
           id: chanInfo.receptionId || chanInfo.channelId,
           name: chanInfo.name,
-          privacyLevel: getPrivacyLevel(chanInfo.receptionId || chanInfo.channelId),
+          privacyLevel: await getPrivacyLevel(chanInfo.receptionId || chanInfo.channelId),
           description: chanInfo.description,
-          isAdmin: channelManager.IsChannelAdmin(utils.Base64ToUint8Array(chanInfo.channelId))
+          isAdmin: await channelManager.IsChannelAdmin(await utils.Base64ToUint8Array(chanInfo.channelId))
         };
 
         if (appendToCurrent) {
@@ -361,9 +384,9 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
         }
 
         if (enableDms) {
-          channelManager.EnableDirectMessages(utils.Base64ToUint8Array(channel.id));
+          channelManager.EnableDirectMessages(await utils.Base64ToUint8Array(channel.id));
         } else {
-          channelManager.DisableDirectMessages(utils.Base64ToUint8Array(channel.id));
+          channelManager.DisableDirectMessages(await utils.Base64ToUint8Array(channel.id));
         }
       }
     },
@@ -382,25 +405,28 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
 
   useEffect(() => {
     if (currentChannel && channelManager) {
-      dispatch(
-        channels.actions.updateDmsEnabled({
-          channelId: currentChannel.id,
-          enabled: channelManager.AreDMsEnabled(utils.Base64ToUint8Array(currentChannel.id))
-        })
-      );
+      (async () => {
+        dispatch(
+          channels.actions.updateDmsEnabled({
+            channelId: currentChannel.id,
+            enabled: await channelManager.AreDMsEnabled(await utils.Base64ToUint8Array(currentChannel.id))
+          })
+        );
+      })();
     }
   }, [channelManager, currentChannel, dispatch, utils]);
 
   const dbMessageMapper = useCallback(
-    (dbMsg: DBMessage): Message => {
+    async (dbMsg: DBMessage): Promise<Message> => {
       if (!cipher) throw new Error('Cipher required');
 
-      const decrypted = cipher.decrypt(dbMsg.text);
+      const decrypted = await cipher.decrypt(dbMsg.text);
       const inflated = dbMsg.type !== MessageType.Reaction ? inflate(decrypted) : decrypted;
       const plaintext = HTMLToPlaintext(inflated);
+      const codenameAndColor = await getCodeNameAndColor(dbMsg.pubkey, dbMsg.codeset_version);
 
       return {
-        ...getCodeNameAndColor(dbMsg.pubkey, dbMsg.codeset_version),
+        ...codenameAndColor,
         id: dbMsg.message_id,
         body: inflated ?? undefined,
         repliedTo: dbMsg.parent_message_id,
@@ -424,13 +450,16 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
 
   const handleMessageEvent = useCallback(
     async ({ uuid }: MessageReceivedEvent) => {
+      console.log('[handleMessageEvent] Received MESSAGE_RECEIVED event, uuid:', uuid, 'db:', !!db, 'cipher:', !!cipher?.decrypt);
       if (db && cipher?.decrypt) {
         const receivedMessage = await db.table<DBMessage>('messages').get(uuid);
+        console.log('[handleMessageEvent] Fetched message from db:', !!receivedMessage);
 
         if (receivedMessage) {
-          const mappedMessage = dbMessageMapper(receivedMessage);
+          const mappedMessage = await dbMessageMapper(receivedMessage);
           const oldMessage = allMessagesByChannelId[mappedMessage.channelId]?.[mappedMessage.uuid];
 
+          console.log('[handleMessageEvent] Dispatching message to Redux:', mappedMessage.id, 'channelId:', mappedMessage.channelId);
           dispatch(messages.actions.upsert(mappedMessage));
 
           if (mappedMessage.status === MessageStatus.Delivered) {
@@ -440,7 +469,11 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
           if (receivedMessage.channel_id !== currentChannel?.id) {
             dispatch(app.actions.notifyNewMessage(mappedMessage));
           }
+        } else {
+          console.warn('[handleMessageEvent] Message not found in db for uuid:', uuid);
         }
+      } else {
+        console.warn('[handleMessageEvent] Skipping - db or cipher not ready. db:', !!db, 'cipher:', !!cipher?.decrypt);
       }
     },
     [allMessagesByChannelId, cipher?.decrypt, currentChannel?.id, db, dbMessageMapper, dispatch]
@@ -456,16 +489,19 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
 
     console.log('fetchedChannels', JSON.stringify(fetchedChannels));
 
-    const channelList = fetchedChannels.map((ch: DBChannel) => ({
-      ...ch,
-      privacyLevel: getPrivacyLevel(ch.id),
-      isAdmin: channelManager.IsChannelAdmin(utils.Base64ToUint8Array(ch.id))
-    }));
+    const channelList = await Promise.all(
+      fetchedChannels.map(async (ch: DBChannel) => ({
+        ...ch,
+        privacyLevel: await getPrivacyLevel(ch.id),
+        isAdmin: await channelManager.IsChannelAdmin(await utils.Base64ToUint8Array(ch.id))
+      }))
+    );
 
     channelList.forEach((channel) => dispatch(channels.actions.upsert(channel)));
   }, [channelManager, db, dispatch, getPrivacyLevel, utils]);
 
   const fetchMessages = useCallback(async () => {
+    console.log('[fetchMessages] Starting, db:', !!db);
     if (!db) throw new Error('DB required to fetch messages');
     const msgs: DBMessage[] = await db
       .table<DBMessage>('messages')
@@ -474,9 +510,11 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
       .filter((m) => !m.hidden)
       .toArray();
 
-    const mappedMessages = msgs.map(dbMessageMapper);
+    console.log('[fetchMessages] Found', msgs.length, 'messages in IndexedDB');
+    const mappedMessages = await Promise.all(msgs.map(dbMessageMapper));
 
     dispatch(messages.actions.upsertMany(mappedMessages));
+    console.log('[fetchMessages] Dispatched', mappedMessages.length, 'messages to Redux');
   }, [db, dbMessageMapper, dispatch]);
 
   const fetchInitialData = useCallback(async () => {
@@ -506,7 +544,7 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
     async (tag: string) => {
       console.log('Loading channel manager with tag:', tag);
       if (cmixId !== undefined && cipher && utils) {
-        const notifications = utils.LoadNotificationsDummy(cmixId);
+        const notifications = await utils.LoadNotificationsDummy(cmixId);
         const loadedChannelsManager = await utils.LoadChannelsManagerWithIndexedDb(
           cmixId,
           (await channelsIndexedDbWorkerPath()).toString(),
@@ -548,7 +586,7 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
       console.log('Creating channel manager...');
       if (cmixId !== undefined && cipher && utils && utils.NewChannelsManagerWithIndexedDb) {
         const workerPath = (await channelsIndexedDbWorkerPath()).toString();
-        const notifications = utils.LoadNotificationsDummy(cmixId);
+        const notifications = await utils.LoadNotificationsDummy(cmixId);
         const createdChannelManager = await utils.NewChannelsManagerWithIndexedDb(
           cmixId,
           workerPath,
@@ -578,7 +616,7 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
     if (currentChannel && channelManager && db) {
       const mutedUserIds = pubkeyArrayDecoder(
         JSON.parse(
-          decoder.decode(channelManager?.GetMutedUsers(utils.Base64ToUint8Array(currentChannel.id)))
+          decoder.decode(await channelManager?.GetMutedUsers(await utils.Base64ToUint8Array(currentChannel.id)))
         )
       );
 
@@ -589,32 +627,30 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
         })
       );
 
-      const usersMap = (
-        (await db
-          .table<DBMessage>('messages')
-          .filter(
-            (obj) => obj.channel_id === currentChannel.id && mutedUserIds.includes(obj.pubkey)
-          )
-          .toArray()) || []
-      )
-        .reduce((acc, cur) => {
-          if (mutedUserIds.includes(cur.pubkey) && !acc.get(cur.pubkey)) {
-            const { codename: codename, color } = getCodeNameAndColor(
-              cur.pubkey,
-              cur.codeset_version
-            );
-            acc.set(cur.pubkey, {
-              codename,
-              color,
-              pubkey: cur.pubkey,
-              codeset: cur.codeset_version
-            });
-          }
-          return acc;
-        }, new Map<string, User>())
-        .values();
+      const messagesArray = (await db
+        .table<DBMessage>('messages')
+        .filter(
+          (obj) => obj.channel_id === currentChannel.id && mutedUserIds.includes(obj.pubkey)
+        )
+        .toArray()) || [];
 
-      users = Array.from(usersMap);
+      const usersMap = new Map<string, User>();
+      for (const cur of messagesArray) {
+        if (mutedUserIds.includes(cur.pubkey) && !usersMap.get(cur.pubkey)) {
+          const { codename: codename, color } = await getCodeNameAndColor(
+            cur.pubkey,
+            cur.codeset_version
+          );
+          usersMap.set(cur.pubkey, {
+            codename,
+            color,
+            pubkey: cur.pubkey,
+            codeset: cur.codeset_version
+          });
+        }
+      }
+
+      users = Array.from(usersMap.values());
     }
 
     return users;
@@ -646,7 +682,7 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
 
           if (newMessages.length > 0) {
             dispatch(channels.actions.incrementPage(chId));
-            dispatch(messages.actions.upsertMany(newMessages.map(dbMessageMapper)));
+            dispatch(messages.actions.upsertMany(await Promise.all(newMessages.map(dbMessageMapper))));
           } else {
             setHasMore(false);
           }
@@ -667,7 +703,7 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
   }, [currentChannel?.id, currentMessages?.length, hasMore, loadMoreChannelData, pagination.end]);
 
   const joinChannelFromURL = useCallback(
-    (url: string, password = '') => {
+    async (url: string, password = '') => {
       if (channelManager && channelManager.JoinChannelFromURL) {
         try {
           const chanInfo = channelDecoder(
@@ -680,8 +716,8 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
                 id: chanInfo?.channelId,
                 name: chanInfo?.name,
                 description: chanInfo?.description,
-                privacyLevel: getPrivacyLevel(chanInfo?.channelId),
-                isAdmin: channelManager.IsChannelAdmin(utils.Base64ToUint8Array(chanInfo.channelId))
+                privacyLevel: await getPrivacyLevel(chanInfo?.channelId),
+                isAdmin: await channelManager.IsChannelAdmin(await utils.Base64ToUint8Array(chanInfo.channelId))
               })
             );
             dispatch(app.actions.selectChannelOrConversation(chanInfo.channelId));
@@ -697,9 +733,9 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
   );
 
   const getChannelInfo = useCallback(
-    (prettyPrint: string) => {
+    async (prettyPrint: string) => {
       if (utils && utils.GetChannelInfo && prettyPrint.length) {
-        return channelDecoder(JSON.parse(decoder.decode(utils.GetChannelInfo(prettyPrint))));
+        return channelDecoder(JSON.parse(decoder.decode(await utils.GetChannelInfo(prettyPrint))));
       }
       return {};
     },
@@ -720,7 +756,7 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
           privacyLevel
         );
 
-        const channelInfo = getChannelInfo(channelPrettyPrint || '') as ChannelJSON;
+        const channelInfo = (await getChannelInfo(channelPrettyPrint || '')) as ChannelJSON;
 
         if (channelInfo.channelId === undefined) {
           throw new Error('ChannelID was not found');
@@ -736,14 +772,14 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
         };
 
         await joinChannel(channelPrettyPrint, false);
-        savePrettyPrint(channel.id, channelPrettyPrint);
+        await savePrettyPrint(channel.id, channelPrettyPrint);
         dispatch(channels.actions.upsert(channel));
         dispatch(app.actions.selectChannelOrConversation(channel.id));
 
         if (enableDms) {
-          channelManager.EnableDirectMessages(utils.Base64ToUint8Array(channel.id));
+          channelManager.EnableDirectMessages(await utils.Base64ToUint8Array(channel.id));
         } else {
-          channelManager.DisableDirectMessages(utils.Base64ToUint8Array(channel.id));
+          channelManager.DisableDirectMessages(await utils.Base64ToUint8Array(channel.id));
         }
       }
     },
@@ -755,7 +791,7 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
   const leaveCurrentChannel = useCallback(async () => {
     if (currentChannel && channelManager && channelManager.LeaveChannel && utils) {
       try {
-        await channelManager.LeaveChannel(utils.Base64ToUint8Array(currentChannel.id));
+        await channelManager.LeaveChannel(await utils.Base64ToUint8Array(currentChannel.id));
 
         dispatch(channels.actions.leaveChannel(currentChannel.id));
       } catch (error) {
@@ -778,7 +814,7 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
       try {
         if (channelManager && currentChannel) {
           const messageId = await channelManager.SendMessage(
-            utils.Base64ToUint8Array(currentChannel.id),
+            await utils.Base64ToUint8Array(currentChannel.id),
             message,
             MESSAGE_LEASE,
             new Uint8Array(),
@@ -805,9 +841,9 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
       if (reply.length && channelManager && utils && utils.Base64ToUint8Array && currentChannel) {
         try {
           await channelManager.SendReply(
-            utils.Base64ToUint8Array(currentChannel.id),
+            await utils.Base64ToUint8Array(currentChannel.id),
             reply,
-            utils.Base64ToUint8Array(replyToMessageId),
+            await utils.Base64ToUint8Array(replyToMessageId),
             30000,
             new Uint8Array(),
             encoder.encode(JSON.stringify(tags))
@@ -826,8 +862,8 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
     async ({ channelId, id }: Pick<Message, 'channelId' | 'id'>) => {
       if (currentChannel) {
         await channelManager?.DeleteMessage(
-          utils.Base64ToUint8Array(channelId),
-          utils.Base64ToUint8Array(id),
+          await utils.Base64ToUint8Array(channelId),
+          await utils.Base64ToUint8Array(id),
           utils.GetDefaultCMixParams()
         );
 
@@ -844,10 +880,10 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
       if (channelManager && utils && utils.Base64ToUint8Array && currentChannel) {
         try {
           await channelManager.SendReaction(
-            utils.Base64ToUint8Array(currentChannel.id),
+            await utils.Base64ToUint8Array(currentChannel.id),
             reaction,
-            utils.Base64ToUint8Array(reactToMessageId),
-            utils.ValidForever(),
+            await utils.Base64ToUint8Array(reactToMessageId),
+            await utils.ValidForever(),
             new Uint8Array()
           );
         } catch (error) {
@@ -870,10 +906,10 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
   );
 
   const setNickname = useCallback(
-    (nickName: string) => {
+    async (nickName: string) => {
       if (channelManager && currentChannel?.id) {
         try {
-          channelManager.SetNickname(nickName, utils.Base64ToUint8Array(currentChannel?.id));
+          await channelManager.SetNickname(nickName, await utils.Base64ToUint8Array(currentChannel?.id));
           return true;
         } catch (error) {
           console.error(error);
@@ -889,42 +925,51 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
     [setDmNickname, channelManager, currentChannel?.id, currentConversation, utils]
   );
 
-  const getNickName = useCallback(() => {
+  const getNickName = useCallback(async () => {
     let nickName = '';
     if (channelManager?.GetNickname && currentChannel) {
       try {
-        nickName = channelManager?.GetNickname(utils.Base64ToUint8Array(currentChannel?.id));
+        nickName = await channelManager?.GetNickname(await utils.Base64ToUint8Array(currentChannel?.id));
       } catch (error) {
         nickName = '';
       }
     }
 
     if (currentConversation) {
-      nickName = getDmNickname();
+      nickName = await getDmNickname();
     }
     return nickName;
   }, [channelManager, currentChannel, currentConversation, getDmNickname, utils]);
 
   useEffect(() => {
     if (currentChannel) {
-      dispatch(
-        channels.actions.updateNickname({
-          channelId: currentChannel.id,
-          nickname: getNickName()
-        })
-      );
+      (async () => {
+        dispatch(
+          channels.actions.updateNickname({
+            channelId: currentChannel.id,
+            nickname: await getNickName()
+          })
+        );
+      })();
     } else if (currentConversation) {
-      dispatch(dms.actions.setUserNickname(getNickName()));
+      (async () => {
+        dispatch(dms.actions.setUserNickname(await getNickName()));
+      })();
     }
   }, [currentChannel, currentConversation, dispatch, getNickName]);
 
   const generateIdentities = useCallback(
-    (amountOfIdentities: number) => {
-      const identitiesObjects: ReturnType<NetworkContext['generateIdentities']> = [];
+    async (amountOfIdentities: number) => {
+      const identitiesObjects: {
+        codename: string;
+        privateIdentity: Uint8Array;
+        codeset: number;
+        pubkey: string;
+      }[] = [];
       if (utils && utils.GenerateChannelIdentity && cmix) {
         for (let i = 0; i < amountOfIdentities; i++) {
-          const createdPrivateIdentity = utils.GenerateChannelIdentity(cmix?.GetID());
-          const publicIdentity = utils.GetPublicChannelIdentityFromPrivate(createdPrivateIdentity);
+          const createdPrivateIdentity = await utils.GenerateChannelIdentity(cmix?.GetID());
+          const publicIdentity = await utils.GetPublicChannelIdentityFromPrivate(createdPrivateIdentity);
           const identityJson = identityDecoder(JSON.parse(decoder.decode(publicIdentity)));
           const codename = identityJson.codename;
           identitiesObjects.push({
@@ -940,15 +985,16 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
     [cmix, utils]
   );
 
-  const getVersion = useCallback(() => {
+  const getVersion = useCallback(async () => {
     if (utils && utils.GetVersion) {
-      return utils.GetVersion();
+      const versionBytes = await utils.GetVersion();
+      return decoder.decode(versionBytes);
     } else return null;
   }, [utils]);
 
-  const getClientVersion = useCallback(() => {
+  const getClientVersion = useCallback(async () => {
     if (utils && utils.GetClientVersion) {
-      return utils.GetClientVersion();
+      return await utils.GetClientVersion();
     } else return null;
   }, [utils]);
 
@@ -959,7 +1005,7 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
           const statePassEncoded = await utils.GetOrInitPassword(password);
 
           if (statePassEncoded && channelManager && channelManager.ExportPrivateIdentity) {
-            const data = channelManager.ExportPrivateIdentity(password);
+            const data = await channelManager.ExportPrivateIdentity(password);
             exportDataToFile(data);
             return statePassEncoded;
           }
@@ -972,60 +1018,72 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
     [channelManager, utils]
   );
 
-  const checkRegistrationReadiness = useCallback(
-    (
-      selectedPrivateIdentity: Uint8Array,
-      onIsReadyInfoChange: (readinessInfo: IsReadyInfoJSON) => void
-    ) => {
-      console.log('Connecting to xx network...');
-      let lastProgress = 0;
+	const checkRegistrationReadiness = useCallback(
+	  (
+	    selectedPrivateIdentity: Uint8Array,
+	    onProgressChange: (registeredNodes: number, totalNodes: number) => void
+	  ) => {
+	    console.log('Starting node registration...');
+	    let lastRegistered = 0;
 
-      return new Promise<void>((resolve) => {
-        const intervalId = setInterval(() => {
-          if (!cmix) {
-            console.log('Waiting for network client initialization...');
-            return;
-          }
+	    return new Promise<void>((resolve) => {
+	      const intervalId = setInterval(async () => {
+	        if (!cmix) {
+	          console.log('Waiting for network client initialization...');
+	          return;
+	        }
 
-          try {
-            const isReadyInfo = isReadyInfoDecoder(
-              JSON.parse(decoder.decode(cmix.IsReady(CMIX_NETWORK_READINESS_THRESHOLD)))
-            );
+	        try {
+	          // Get node registration status for progress display
+	          const statusResult = await cmix.GetNodeRegistrationStatus();
+	          if (statusResult && statusResult instanceof Uint8Array && statusResult.length > 0) {
+	            const registrationReport = nodeRegistrationReportDecoder(
+	              JSON.parse(decoder.decode(statusResult))
+	            );
 
-            const progress = Math.ceil((isReadyInfo.howClose || 0) * 100);
-            // Log every 10% change to avoid spam
-            if (progress !== lastProgress && progress % 10 === 0) {
-              console.log(`Network readiness: ${progress}% (discovering compatible gateways...)`);
-              lastProgress = progress;
-            }
+	            const { NumberOfNodesRegistered, NumberOfNodes } = registrationReport;
 
-            onIsReadyInfoChange(isReadyInfo);
+	            // Log progress when it changes
+	            if (NumberOfNodesRegistered !== lastRegistered) {
+	              console.log(
+	                `Node registration progress: ${NumberOfNodesRegistered}/${NumberOfNodes} nodes`
+	              );
+	              lastRegistered = NumberOfNodesRegistered;
+	            }
 
-            if (isReadyInfo.isReady) {
-              clearInterval(intervalId);
-              console.log('Network ready! Completing registration...');
-              setTimeout(() => {
-                console.log('Creating channel manager...');
-                createChannelManager(selectedPrivateIdentity);
-                setIsAuthenticated(true);
-                resolve();
-              }, 3000);
-            }
-          } catch (error) {
-            console.error('Error checking network readiness:', error);
-          }
-        }, 1000);
-      });
-    },
-    [cmix, createChannelManager, setIsAuthenticated]
-  );
+	            onProgressChange(NumberOfNodesRegistered, NumberOfNodes);
+
+	            // Treat reaching the registration threshold as readiness,
+	            // independent of transient network health.
+	            const fractionRegistered =
+	              NumberOfNodes > 0 ? NumberOfNodesRegistered / NumberOfNodes : 0;
+
+	            if (fractionRegistered >= CMIX_NETWORK_READINESS_THRESHOLD) {
+	              clearInterval(intervalId);
+	              console.log('Registration threshold reached. Creating channel manager...');
+	              setTimeout(() => {
+	                createChannelManager(selectedPrivateIdentity);
+	                setIsAuthenticated(true);
+	                resolve();
+	              }, 1000);
+	            }
+	          }
+	        } catch (error) {
+	          console.error('Error checking registration readiness:', error);
+	        }
+	      }, 1000);
+	    });
+	  },
+	  [cmix, cmixStatus, createChannelManager, setIsAuthenticated]
+	);
 
   const logout = useCallback(
-    (password: string) => {
+    async (password: string) => {
       if (utils && utils.Purge) {
         disconnect();
-        utils.Purge(password);
+        await utils.Purge(password);
         window.localStorage.clear();
+        await clearKVStorage();
         Cookies.remove('userAuthenticated', { path: '/' });
         setIsAuthenticated(false);
         setChannelManager(undefined);
@@ -1042,10 +1100,10 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
     async (pubkey: string, muted: boolean) => {
       if (currentChannel) {
         await channelManager?.MuteUser(
-          utils.Base64ToUint8Array(currentChannel?.id),
-          utils.Base64ToUint8Array(pubkey),
+          await utils.Base64ToUint8Array(currentChannel?.id),
+          await utils.Base64ToUint8Array(pubkey),
           muted,
-          utils.ValidForever(),
+          await utils.ValidForever(),
           utils.GetDefaultCMixParams()
         );
 
@@ -1063,8 +1121,8 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
     async (id: MessageId, unpin = false) => {
       if (currentChannel && channelManager) {
         await channelManager.PinMessage(
-          utils.Base64ToUint8Array(currentChannel?.id),
-          utils.Base64ToUint8Array(id),
+          await utils.Base64ToUint8Array(currentChannel?.id),
+          await utils.Base64ToUint8Array(id),
           unpin,
           PIN_MESSAGE_LENGTH_MILLISECONDS,
           utils.GetDefaultCMixParams()
@@ -1075,11 +1133,11 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
   );
 
   const exportChannelAdminKeys = useCallback(
-    (encryptionPassword: string) => {
+    async (encryptionPassword: string) => {
       if (channelManager && currentChannel) {
         return decoder.decode(
           channelManager.ExportChannelAdminKey(
-            utils.Base64ToUint8Array(currentChannel.id),
+            await utils.Base64ToUint8Array(currentChannel.id),
             encryptionPassword
           )
         );
@@ -1090,10 +1148,10 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
   );
 
   const importChannelAdminKeys = useCallback(
-    (encryptionPassword: string, privateKey: string) => {
+    async (encryptionPassword: string, privateKey: string) => {
       if (channelManager && currentChannel) {
         channelManager.ImportChannelAdminKey(
-          utils.Base64ToUint8Array(currentChannel.id),
+          await utils.Base64ToUint8Array(currentChannel.id),
           encryptionPassword,
           encoder.encode(privateKey)
         );
@@ -1104,39 +1162,54 @@ export const NetworkProvider: FC<WithChildren> = (props) => {
     [channelManager, currentChannel, utils]
   );
 
+  // Version upgrade check - uses KV storage instead of Go's localStorage
   useEffect(() => {
-    if (utils && utils.GetWasmSemanticVersion) {
-      const version = versionDecoder(JSON.parse(decoder.decode(utils.GetWasmSemanticVersion())));
-      const isUpdate = version.updated;
-      const outdatedVersion = '0.1.8';
-      const [outdatedMajor, outdatedMinor] = outdatedVersion.split('.').map((i) => parseInt(i, 10));
-      const [oldMajor, oldMinor] = version.old.split('.').map((i) => parseInt(i, 10));
+    if (utils && utils.GetVersion) {
+      (async () => {
+        // Get current version from WASM (returns Uint8Array, need to decode to string)
+        const currentVersionBytes = await utils.GetVersion();
+        const currentVersion = decoder.decode(currentVersionBytes);
 
-      if (isUpdate && oldMinor <= outdatedMinor && oldMajor === outdatedMajor) {
-        window.localStorage.clear();
-        Cookies.remove('userAuthenticated', { path: '/' });
-        window.location.reload();
-      }
+        // Get stored old version from our KV storage
+        const oldVersion = await getKVValue<string>('xxdkWasmVersion') || currentVersion;
+        const isUpdate = currentVersion !== oldVersion;
+
+        // Store current version for next time
+        await setKVValue('xxdkWasmVersion', currentVersion);
+
+        // Check if upgrading from an outdated version that requires storage clear
+        const outdatedVersion = '0.1.8';
+        const [outdatedMajor, outdatedMinor] = outdatedVersion.split('.').map((i) => parseInt(i, 10));
+        const [oldMajor, oldMinor] = oldVersion.split('.').map((i) => parseInt(i, 10));
+
+        if (isUpdate && oldMinor <= outdatedMinor && oldMajor === outdatedMajor) {
+          window.localStorage.clear();
+          await clearKVStorage();
+          Cookies.remove('userAuthenticated', { path: '/' });
+          window.location.reload();
+        }
+      })();
     }
   }, [utils]);
 
   useEffect(() => {
-    if (channelManager) {
-      console.log('Channel manager loaded, fetching initial data');
+    if (channelManager && db) {
+      console.log('Channel manager and DB loaded, fetching initial data');
       fetchInitialData();
     }
-  }, [channelManager, fetchInitialData]);
+  }, [channelManager, db, fetchInitialData]);
 
   useEffect(() => {
     if (!utils) return;
 
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       try {
         // Try to call a simple WASM function to check if it's still responsive
-        utils.GetWasmSemanticVersion();
+        await utils.GetVersion();
       } catch (error) {
-        console.error('WASM appears to be non-responsive, refreshing page...', error);
-        window.location.reload();
+        console.error('WASM appears to be non-responsive:', error);
+        // Disabled auto-reload to see panic messages
+        // window.location.reload();
       }
     }, 10000); // Check every 10 seconds
 

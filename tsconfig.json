@@ -26,5 +26,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "src/quill/constants.js"],
-  "exclude": ["node_modules", "src/declarations/**/*.js", "src/declarations/**/*.ts"]
+  "exclude": ["node_modules", "src/declarations/**/*.js", "src/declarations/**/*.ts", "xxdk-wasm"]
 }

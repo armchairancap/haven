@@ -43,7 +43,7 @@ const useDmClient = () => {
       if (client && message.length && currentConversation) {
         try {
           await client.SendText(
-            utils.Base64ToUint8Array(currentConversation.pubkey),
+            await utils.Base64ToUint8Array(currentConversation.pubkey),
             currentConversation.token,
             message,
             MESSAGE_LEASE,
@@ -64,10 +64,10 @@ const useDmClient = () => {
       }
       try {
         await client?.SendReply(
-          utils.Base64ToUint8Array(currentConversation.pubkey),
+          await utils.Base64ToUint8Array(currentConversation.pubkey),
           currentConversation.token,
           reply,
-          utils.Base64ToUint8Array(replyToMessageId),
+          await utils.Base64ToUint8Array(replyToMessageId),
           30000,
           new Uint8Array()
         );
@@ -85,10 +85,10 @@ const useDmClient = () => {
       }
       try {
         await client.SendReaction(
-          utils.Base64ToUint8Array(currentConversation?.pubkey),
+          await utils.Base64ToUint8Array(currentConversation?.pubkey),
           currentConversation.token,
           reaction,
-          utils.Base64ToUint8Array(reactToMessageId),
+          await utils.Base64ToUint8Array(reactToMessageId),
           new Uint8Array()
         );
       } catch (error) {
@@ -100,7 +100,7 @@ const useDmClient = () => {
 
   const blockUser = useCallback(
     async (pubkey: string) => {
-      const encodedKey = utils.Base64ToUint8Array(pubkey);
+      const encodedKey = await utils.Base64ToUint8Array(pubkey);
       await client?.BlockPartner(encodedKey);
     },
     [client, utils]
@@ -108,7 +108,7 @@ const useDmClient = () => {
 
   const unblockUser = useCallback(
     async (pubkey: string) => {
-      const encodedKey = utils.Base64ToUint8Array(pubkey);
+      const encodedKey = await utils.Base64ToUint8Array(pubkey);
       await client?.UnblockPartner(encodedKey);
     },
     [client, utils]
@@ -126,13 +126,13 @@ const useDmClient = () => {
   );
 
   const setDmNickname = useCallback(
-    (nickname: string) => {
+    async (nickname: string) => {
       if (!client) {
         return false;
       }
 
       try {
-        client.SetNickname(nickname);
+        await client.SetNickname(nickname);
         dispatch(dms.actions.setUserNickname(nickname));
         return true;
       } catch (e) {
@@ -143,10 +143,10 @@ const useDmClient = () => {
     [client, dispatch]
   );
 
-  const getDmNickname = useCallback(() => {
+  const getDmNickname = useCallback(async () => {
     let nickname: string;
     try {
-      nickname = client?.GetNickname() ?? '';
+      nickname = (await client?.GetNickname()) ?? '';
     } catch (error) {
       nickname = '';
     }
@@ -154,10 +154,10 @@ const useDmClient = () => {
   }, [client]);
 
   const toggleDmNotificationLevel = useCallback(
-    (conversationId: string) => {
+    async (conversationId: string) => {
       const level = notificationLevels[conversationId];
-      client?.SetMobileNotificationsLevel(
-        utils.Base64ToUint8Array(conversationId),
+      await client?.SetMobileNotificationsLevel(
+        await utils.Base64ToUint8Array(conversationId),
         level === DMNotificationLevel.NotifyNone
           ? DMNotificationLevel.NotifyAll
           : DMNotificationLevel.NotifyNone
@@ -167,14 +167,14 @@ const useDmClient = () => {
   );
 
   const deleteDirectMessage = useCallback(
-    (messageId: string) => {
+    async (messageId: string) => {
       if (!currentConversation) {
         throw new Error('Current conversation is undefined');
       }
-      client?.DeleteMessage(
-        utils.Base64ToUint8Array(currentConversation.pubkey),
+      await client?.DeleteMessage(
+        await utils.Base64ToUint8Array(currentConversation.pubkey),
         currentConversation.token,
-        utils.Base64ToUint8Array(messageId),
+        await utils.Base64ToUint8Array(messageId),
         undefined,
         new Uint8Array()
       );

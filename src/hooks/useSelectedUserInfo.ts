@@ -44,12 +44,12 @@ const useSelectedUserInfo = () => {
     db.table<DBMessage>('messages')
       .filter((msg) => msg.pubkey === selectedUserPubkey)
       .toArray()
-      .then((msgs) => {
+      .then(async (msgs) => {
         const sortedMessages = msgs.sort(byTimestamp);
         const recentMessage = sortedMessages[msgs.length - 1];
 
         if (recentMessage) {
-          const { codename, color } = getCodeNameAndColor(
+          const { codename, color } = await getCodeNameAndColor(
             recentMessage.pubkey,
             recentMessage.codeset_version
           );
@@ -101,9 +101,9 @@ const useSelectedUserInfo = () => {
         .table<DBDirectMessage>('messages')
         .filter((msg) => msg.sender_pub_key === selectedUserPubkey)
         .last()
-    ]).then(([conversation, recentMessage]) => {
+    ]).then(async ([conversation, recentMessage]) => {
       if (conversation && recentMessage) {
-        const { codename, color } = getCodeNameAndColor(
+        const { codename, color } = await getCodeNameAndColor(
           conversation.pub_key,
           conversation.codeset_version
         );

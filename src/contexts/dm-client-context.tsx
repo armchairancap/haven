@@ -26,7 +26,7 @@ import * as messages from 'src/store/messages';
 import * as dms from 'src/store/dms';
 import * as app from 'src/store/app';
 import * as identity from 'src/store/identity';
-import useLocalStorage from 'src/hooks/useLocalStorage';
+import useKVStorage from 'src/hooks/useKVStorage';
 import { onDmEvent, appBus as bus } from 'src/events';
 
 import { dmIndexedDbWorkerPath } from 'xxdk-wasm';
@@ -69,16 +69,18 @@ const makeMessageMapper =
     userIdentity: Identity,
     nickname?: string
   ) =>
-  (message: DBDirectMessage, conversation: Conversation): Message => {
+  async (message: DBDirectMessage, conversation: Conversation): Promise<Message> => {
+    const decrypted = await cipher.decrypt(message.text);
     const inflated =
       message.type === MessageType.Reaction
-        ? cipher.decrypt(message.text)
-        : inflate(cipher.decrypt(message.text));
+        ? decrypted
+        : inflate(decrypted);
     const plaintext = HTMLToPlaintext(inflated);
+    const codenameAndColor = await codenameConverter(message.sender_pub_key, message.codeset_version);
 
     return {
       nickname: message.sender_pub_key === userIdentity?.pubkey ? nickname : conversation?.nickname,
-      ...codenameConverter(message.sender_pub_key, message.codeset_version),
+      ...codenameAndColor,
       uuid: message.id,
       id: message.message_id,
       status: message.status as unknown as MessageStatus,
@@ -112,10 +114,12 @@ export const DMContextProvider: FC<WithChildren> = ({ children }) => {
   const { getCodeNameAndColor, utils } = useUtils();
   const { NewDMClientWithIndexedDb } = utils;
   const dmTokens = useAppSelector(messages.selectors.dmTokens);
-  const [dmsDatabaseName, setDmsDatabaseName] = useLocalStorage<string | null>(
+  const [dmsDatabaseNameStr, setDmsDatabaseNameStr] = useKVStorage(
     DMS_DATABASE_NAME,
-    null
+    ''
   );
+  const dmsDatabaseName = dmsDatabaseNameStr || null;
+  const setDmsDatabaseName = (name: string | null) => setDmsDatabaseNameStr(name || '');
   const conversationMapper = useMemo(
     () => makeConversationMapper(dmTokens, getCodeNameAndColor),
     [dmTokens, getCodeNameAndColor]
@@ -134,11 +138,13 @@ export const DMContextProvider: FC<WithChildren> = ({ children }) => {
 
   useEffect(() => {
     if (client) {
-      try {
-        dispatch(dms.actions.setUserNickname(client.GetNickname()));
-      } catch (e) {
-        // no nickname found
-      }
+      (async () => {
+        try {
+          dispatch(dms.actions.setUserNickname(await client.GetNickname()));
+        } catch (e) {
+          // no nickname found
+        }
+      })();
     }
   }, [client, dispatch]);
 
@@ -149,8 +155,8 @@ export const DMContextProvider: FC<WithChildren> = ({ children }) => {
   }, [client, dmsDatabaseName, setDmsDatabaseName]);
 
   const createDatabaseCipher = useCallback(
-    (cmix: CMix, decryptedPassword: Uint8Array) => {
-      const cipher = utils.NewDatabaseCipher(
+    async (cmix: CMix, decryptedPassword: Uint8Array) => {
+      const cipher = await utils.NewDatabaseCipher(
         cmix.GetID(),
         decryptedPassword,
         MAXIMUM_PAYLOAD_BLOCK_SIZE
@@ -158,7 +164,7 @@ export const DMContextProvider: FC<WithChildren> = ({ children }) => {
 
       const dbCipher = {
         id: cipher.GetID(),
-        decrypt: (encrypted: string) => decoder.decode(cipher.Decrypt(encrypted))
+        decrypt: async (encrypted: string) => decoder.decode(await cipher.Decrypt(encrypted))
       };
 
       setDatabaseCipher(dbCipher);
@@ -177,15 +183,16 @@ export const DMContextProvider: FC<WithChildren> = ({ children }) => {
       try {
         const workerPath = (await dmIndexedDbWorkerPath()).toString();
         //console.log('DMWORKERPATH: ' + workerPath);
-        const notifications = utils.LoadNotificationsDummy(cmix.GetID());
-        NewDMClientWithIndexedDb(
+        const notifications = await utils.LoadNotificationsDummy(cmix.GetID());
+        const client = await NewDMClientWithIndexedDb(
           cmix.GetID(),
           notifications.GetID(),
           cipher.id,
           workerPath.toString(),
           privateIdentity,
           { EventUpdate: onDmEvent }
-        ).then(setClient);
+        );
+        setClient(client);
       } catch (e) {
         console.error('Failed to create DM client:', e);
       }
@@ -202,12 +209,15 @@ export const DMContextProvider: FC<WithChildren> = ({ children }) => {
 
   useEffect(() => {
     if (rawPassword && decryptedPassword && cmix && channelManager) {
-      const privateIdentity = utils.ImportPrivateIdentity(
-        rawPassword as string,
-        channelManager.ExportPrivateIdentity(rawPassword as string)
-      );
-      const cipher = createDatabaseCipher(cmix as CMix, decryptedPassword as Uint8Array);
-      createDMClient(cmix as CMix, cipher, privateIdentity);
+      (async () => {
+        const exportedIdentity = await channelManager.ExportPrivateIdentity(rawPassword as string);
+        const privateIdentity = await utils.ImportPrivateIdentity(
+          rawPassword as string,
+          exportedIdentity
+        );
+        const cipher = await createDatabaseCipher(cmix as CMix, decryptedPassword as Uint8Array);
+        createDMClient(cmix as CMix, cipher, privateIdentity);
+      })();
     }
   }, [
     channelManager,
@@ -233,20 +243,18 @@ export const DMContextProvider: FC<WithChildren> = ({ children }) => {
 
   useEffect(() => {
     if (dmsDb && messageMapper && conversations) {
-      dmsDb
-        .table<DBDirectMessage>('messages')
-        .toArray()
-        .then((directMessages) => {
-          const mapped = directMessages.reduce((acc, msg) => {
+      (async () => {
+        const directMessages = await dmsDb.table<DBDirectMessage>('messages').toArray();
+        const mappingPromises = directMessages
+          .map((msg) => {
             const convo = conversations.find((c) => c.pubkey === msg.conversation_pub_key);
-            if (convo) {
-              acc.push(messageMapper(msg, convo));
-            }
-            return acc;
-          }, [] as Message[]);
+            return convo ? messageMapper(msg, convo) : null;
+          })
+          .filter((p): p is Promise<Message> => p !== null);
 
-          dispatch(dms.actions.upsertManyDirectMessages(mapped));
-        });
+        const mapped = await Promise.all(mappingPromises);
+        dispatch(dms.actions.upsertManyDirectMessages(mapped));
+      })();
     }
   }, [conversations, currentConversation, dispatch, dmsDb, messageMapper]);
 
@@ -262,7 +270,7 @@ export const DMContextProvider: FC<WithChildren> = ({ children }) => {
           .table<DBConversation>('conversations')
           .filter((c) => c.pub_key === e.pubkey)
           .last()
-      ]).then(([message, conversation]) => {
+      ]).then(async ([message, conversation]) => {
         if (!conversation) {
           console.error("Couldn't find conversation in database.");
           return;
@@ -281,7 +289,7 @@ export const DMContextProvider: FC<WithChildren> = ({ children }) => {
 
         const messageIsNew = !allDms[message.conversation_pub_key]?.[message.id];
 
-        const decryptedMessage = messageMapper(message, mappedConversation);
+        const decryptedMessage = await messageMapper(message, mappedConversation);
 
         if (
           currentConversationId !== conversation.pub_key &&

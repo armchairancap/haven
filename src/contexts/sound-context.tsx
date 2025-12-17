@@ -1,5 +1,5 @@
-import { createContext, FC, useContext, useState, useCallback } from 'react';
-import { useRemotelySynchedString } from 'src/hooks/useRemotelySynchedValue';
+import { createContext, FC, useContext, useState } from 'react';
+import useKVStorage from 'src/hooks/useKVStorage';
 import NotificationSound from '@components/common/NotificationSound';
 
 type SoundContextType = {
@@ -10,10 +10,7 @@ const SoundContext = createContext<SoundContextType>({ playNotification: null })
 
 export const SoundProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
   const [playNotification, setPlayNotification] = useState<(() => void) | null>(null);
-  const { value: notificationSound } = useRemotelySynchedString(
-    'notification-sound',
-    '/sounds/notification.mp3'
-  );
+  const [notificationSound] = useKVStorage('notification-sound', '/sounds/notification.mp3');
 
   return (
     <SoundContext.Provider value={{ playNotification }}>

@@ -86,17 +86,17 @@ const ChatReactions: FC<Props> = ({ message }) => {
         <Tooltip
           clickable
           className='!p-1 !pb-2 !opacity-100 !max-w-[320px] !max-h-[350px] overflow-auto rounded'
-          key={emoji}
+          key={`${id}-${message.id}-${emoji}`}
           anchorId={`${id}-${message.id}-${emoji}-emojis-users-reactions`}
           place={'bottom'}
         >
           <div className='text-[48px] text-center'>{emoji}</div>
           <p className='text-xs font-medium text-center'>
             {users.slice(0, Math.max(1, users.length - 1)).map((u, i) => (
-              <>
+              <React.Fragment key={u.pubkey}>
                 {i > 0 && ', '}
-                <Identity key={u.pubkey} pubkey={u.pubkey} codeset={u.codeset} />
-              </>
+                <Identity pubkey={u.pubkey} codeset={u.codeset} />
+              </React.Fragment>
             ))}
             {users.length > 1 && (
               <>

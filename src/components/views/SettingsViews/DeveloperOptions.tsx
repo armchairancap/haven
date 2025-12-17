@@ -1,51 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Radiation } from 'lucide-react';
 
-import { Button, Spinner } from '@components/common';
+import { Button } from '@components/common';
 import { Download } from '@components/icons';
 import SoundSelector from '@components/common/NotificationSoundSelector';
-import { useRemoteStore } from '@contexts/remote-kv-context';
-import useAccountSync from 'src/hooks/useAccountSync';
-import { decoder } from '@utils/index';
 
 const DeveloperOptionsView = () => {
   const { t } = useTranslation();
-  const [remoteStore] = useRemoteStore();
-  const { isSynced } = useAccountSync();
-  const [currentFiles, setCurrentFiles] = useState<string>();
-  const [deleteLoading, setDeleteLoading] = useState(false);
-
-  // TODO: Remove speakeasyapp, this should be done via the npm package.
-  const printCurrentFiles = useCallback(
-    async (folder = 'speakeasyapp') => {
-      setDeleteLoading(true);
-      try {
-        await remoteStore?.ReadDir(folder).then((v) => setCurrentFiles(decoder.decode(v)));
-      } catch (e) {
-        console.error('Deleting remote store failed', e);
-      }
-      setDeleteLoading(false);
-    },
-    [remoteStore]
-  );
-
-  useEffect(() => {
-    if (remoteStore) {
-      printCurrentFiles();
-    }
-  }, [printCurrentFiles, remoteStore]);
-
-  const nukeRemoteStore = useCallback(async () => {
-    setDeleteLoading(true);
-    try {
-      await remoteStore?.DeleteAll();
-      await printCurrentFiles();
-    } catch (e) {
-      console.error('Delete failed', e);
-    }
-    setDeleteLoading(false);
-  }, [printCurrentFiles, remoteStore]);
 
   const exportLogs = useCallback(async () => {
     if (!window.logger) {
@@ -85,39 +46,6 @@ const DeveloperOptionsView = () => {
             <SoundSelector />
           </div>
         </div>
-        <div className='flex justify-between items-center'>
-          <h3 className='headline--sm'>{t('Remote Store')}</h3>
-          <div>
-            {isSynced ? (
-              <Button
-                className='flex items-center justify-center space-x-4'
-                onClick={nukeRemoteStore}
-              >
-                <Radiation className='w-5 h-5' />
-                <span>{t('Nuke')}</span>
-                <Radiation className='w-5 h-5' />
-              </Button>
-            ) : (
-              t('Not synced')
-            )}
-          </div>
-        </div>
-        {isSynced && (
-          <>
-            {deleteLoading ? (
-              <Spinner size='md' />
-            ) : (
-              <div>
-                <h3 className='headline--sm mb-8'>{t('App Directory Contents')}</h3>
-                <div className='overflow-auto w-full'>
-                  <code className='m-h-12 bg-charcoal-4 p-4 rounded-lg block overflow-auto w-full'>
-                    {currentFiles}
-                  </code>
-                </div>
-              </div>
-            )}
-          </>
-        )}
       </div>
     </>
   );

@@ -1,9 +1,9 @@
-import useLocalStorage from './useLocalStorage';
+import useKVStorage from './useKVStorage';
 import { useCallback } from 'react';
 import { FAST_MODE_TRACKING_PERIOD_MS, SLOW_MODE_TRACKING_PERIOD_MS } from 'src/constants';
 
 const useTrackNetworkPeriod = () => {
-  const [trackingMode, setMode] = useLocalStorage<'slow' | 'fast'>('TRACK_NETWORK_PERIOD', 'fast');
+  const [trackingMode, setMode] = useKVStorage('TRACK_NETWORK_PERIOD', 'fast');
 
   const toggle = useCallback(() => {
     setMode(trackingMode === 'fast' ? 'slow' : 'fast');

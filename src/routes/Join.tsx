@@ -49,13 +49,14 @@ const Join = () => {
       }
     };
 
-    setInterval(() => {
+    const intervalId = setInterval(() => {
       setIsUserAuthenticated((auth) => (auth === 'loading' ? 'no-response' : auth));
     }, 2000);
 
     authChannel.addEventListener('message', onResponse);
 
     return () => {
+      clearInterval(intervalId);
       authChannel.removeEventListener('message', onResponse);
     };
   }, [authChannel, instanceId]);
@@ -83,28 +84,32 @@ const Join = () => {
 
   useEffect(() => {
     if (withLink) {
-      const urlType = getShareUrlType(window.location.href);
-      setChannelType(urlType);
+      (async () => {
+        const urlType = await getShareUrlType(window.location.href);
+        setChannelType(urlType);
+      })();
     }
   }, [isUserAuthenticated, withLink, getShareUrlType]);
 
   useEffect(() => {
     if (channelType === PrivacyLevel.Public && broadcastChannel) {
-      const prettyPrinted = utils.DecodePublicURL(window.location.href);
-      const infoJson = channelDecoder(
-        JSON.parse(decoder.decode(utils.GetChannelJSON(prettyPrinted)))
-      );
-      setChannelPrettyPrint(prettyPrinted);
-      setChannelInfoJson(infoJson);
+      (async () => {
+        const prettyPrinted = await utils.DecodePublicURL(window.location.href);
+        const infoJson = channelDecoder(
+          JSON.parse(decoder.decode(await utils.GetChannelJSON(prettyPrinted)))
+        );
+        setChannelPrettyPrint(prettyPrinted);
+        setChannelInfoJson(infoJson);
+      })();
     }
   }, [broadcastChannel, channelType, utils]);
 
-  const joinPrivateChannel = () => {
+  const joinPrivateChannel = async () => {
     if (password) {
       try {
-        const prettyPrinted = utils.DecodePrivateURL(window.location.href, password);
+        const prettyPrinted = await utils.DecodePrivateURL(window.location.href, password);
         const infoJson = channelDecoder(
-          JSON.parse(decoder.decode(utils.GetChannelJSON(prettyPrinted)))
+          JSON.parse(decoder.decode(await utils.GetChannelJSON(prettyPrinted)))
         );
         setChannelPrettyPrint(prettyPrinted);
         setChannelInfoJson(infoJson);

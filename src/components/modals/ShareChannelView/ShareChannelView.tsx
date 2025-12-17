@@ -48,14 +48,16 @@ const ShareChannelView: FC = () => {
 
   useEffect(() => {
     if (currentChannel) {
-      const resultCredential = getShareURL(currentChannel?.id);
+      (async () => {
+        const resultCredential = await getShareURL(currentChannel?.id);
 
-      if (resultCredential) {
-        setCredentials({
-          url: resultCredential?.url || '',
-          password: resultCredential?.password || ''
-        });
-      }
+        if (resultCredential) {
+          setCredentials({
+            url: resultCredential?.url || '',
+            password: resultCredential?.password || ''
+          });
+        }
+      })();
     }
   }, [currentChannel, getShareURL]);
 

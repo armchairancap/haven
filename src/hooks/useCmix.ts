@@ -1,4 +1,4 @@
-import type { CMix, CMixParams, DatabaseCipher, DummyTraffic, RemoteStore } from 'src/types';
+import type { CMix, CMixParams, DatabaseCipher, DummyTraffic } from 'src/types';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -13,8 +13,8 @@ import {
 import useTrackNetworkPeriod from './useNetworkTrackPeriod';
 import { useAuthentication } from '@contexts/authentication-context';
 import { AppEvents, appBus as bus, useAppEventListener } from 'src/events';
-import { RemoteKVWrapper } from '@contexts/remote-kv-context';
 import useAccountSync, { AccountSyncStatus } from './useAccountSync';
+import { clearKVStorage } from './useKVStorage';
 
 import { GetDefaultNDF } from 'xxdk-wasm';
 
@@ -50,18 +50,19 @@ const useCmix = () => {
   const accountSync = useAccountSync();
 
   const encodedCmixParams = useMemo(() => {
+    if (!utils?.GetDefaultCMixParams) return new Uint8Array();
     const params = JSON.parse(decoder.decode(utils.GetDefaultCMixParams())) as CMixParams;
     params.Network.EnableImmediateSending = true;
     return encoder.encode(JSON.stringify(params));
   }, [utils]);
 
   const createDatabaseCipher = useCallback(
-    (id: number, password: Uint8Array) => {
-      const cipher = utils.NewDatabaseCipher(id, password, MAXIMUM_PAYLOAD_BLOCK_SIZE);
+    async (id: number, password: Uint8Array) => {
+      const cipher = await utils.NewDatabaseCipher(id, password, MAXIMUM_PAYLOAD_BLOCK_SIZE);
 
       setDatabaseCipher({
         id: cipher.GetID(),
-        decrypt: (encrypted: string) => decoder.decode(cipher.Decrypt(encrypted))
+        decrypt: async (encrypted: string) => decoder.decode(await cipher.Decrypt(encrypted))
       });
     },
     [utils]
@@ -72,33 +73,6 @@ const useCmix = () => {
       bus.emit(AppEvents.CMIX_LOADED, cmix);
     }
   }, [cmix]);
-
-  const loadSynchronizedCmix = useCallback(
-    async (password: Uint8Array, store: RemoteStore) => {
-      const loadedCmix = await utils.LoadSynchronizedCmix(
-        STATE_PATH,
-        password,
-        store,
-        encodedCmixParams
-      );
-
-      setCmix(loadedCmix);
-    },
-    [encodedCmixParams, utils]
-  );
-
-  const initializeSynchronizedCmix = useCallback(
-    async (password: Uint8Array, store: RemoteStore) => {
-      if (!cmixPreviouslyInitialized) {
-        await utils.NewSynchronizedCmix(ndf, STATE_PATH, '', password, store).catch((e) => {
-          bus.emit(AppEvents.NEW_SYNC_CMIX_FAILED);
-          utils.Purge(rawPassword ?? '');
-          throw e;
-        });
-      }
-    },
-    [cmixPreviouslyInitialized, rawPassword, utils]
-  );
 
   const connect = useCallback(async () => {
     if (!cmix) {
@@ -144,21 +118,6 @@ const useCmix = () => {
     }
   }, [cmix]);
 
-  useEffect(() => {
-    const listener = () => {
-      try {
-        cmix?.StopNetworkFollower();
-      } catch (e) {
-        console.error('Stop follower failed:', e);
-      }
-    };
-
-    bus.addListener(AppEvents.REMOTE_STORE_INITIALIZED, listener);
-
-    return () => {
-      bus.removeListener(AppEvents.REMOTE_STORE_INITIALIZED, listener);
-    };
-  }, [cmix]);
 
   useEffect(() => {
     if (cmix) {
@@ -174,11 +133,11 @@ const useCmix = () => {
 
   useEffect(() => {
     if (cmixId !== undefined) {
-      try {
-        setDummyTrafficManager(utils.NewDummyTrafficManager(cmixId, ...DUMMY_TRAFFIC_ARGS));
-      } catch (error) {
-        console.error('error while creating the Dummy Traffic Object:', error);
-      }
+      utils.NewDummyTrafficManager(cmixId, ...DUMMY_TRAFFIC_ARGS)
+        .then(setDummyTrafficManager)
+        .catch((error) => {
+          console.error('error while creating the Dummy Traffic Object:', error);
+        });
     }
   }, [cmixId, utils]);
 
@@ -194,21 +153,75 @@ const useCmix = () => {
     }
   }, [cmix, createDatabaseCipher, decryptedPass]);
 
+  // Clear all storage (IndexedDB and localStorage related to cmix/channels/dms)
+  const clearAllStorage = async () => {
+    console.log('Clearing all storage before NewCmix...');
+
+    try {
+      // Clear localStorage
+      console.log('Clearing localStorage...');
+      localStorage.clear();
+      console.log('localStorage cleared');
+
+      // Clear KV storage (IndexedDB-backed)
+      console.log('Clearing KV storage...');
+      await clearKVStorage();
+      console.log('KV storage cleared');
+
+      // Don't try to enumerate databases (can hang if other tabs have connections open)
+      // Instead, just clear localStorage and let NewCmix/LoadCmix handle the rest
+      // The state worker will recreate/overwrite IndexedDB as needed
+      console.log('Skipping IndexedDB enumeration (may hang if other tabs are open)');
+      console.log('WASM workers will handle IndexedDB initialization');
+
+      console.log('Storage cleared successfully');
+    } catch (error) {
+      console.error('Error clearing storage:', error);
+      throw error;
+    }
+  };
+
   // Cmix initialization and loading
   const initializeCmix = async (password: Uint8Array) => {
     if (!cmixPreviouslyInitialized) {
-      await utils.NewCmix(ndf, STATE_PATH, password, '');
+      // Clear all storage before creating new cmix to avoid conflicts
+      await clearAllStorage();
+      console.log('Calling NewCmix with STATE_PATH:', STATE_PATH);
+      console.log('NDF length:', ndf?.length);
+      try {
+        await utils.NewCmix(ndf, STATE_PATH, password, '');
+        console.log('NewCmix completed successfully');
+      } catch (error) {
+        console.error('NewCmix failed:', error);
+        throw error;
+      }
+    } else {
+      console.log('Skipping NewCmix - cmix previously initialized');
     }
   };
   const loadCmix = async (password: Uint8Array) => {
-    const loadedCmix = await utils.LoadCmix(STATE_PATH, password, encodedCmixParams);
-    setCmix(loadedCmix);
+    console.log('Loading cmix from STATE_PATH:', STATE_PATH);
+    try {
+      const loadedCmix = await utils.LoadCmix(STATE_PATH, password, encodedCmixParams);
+      console.log('LoadCmix completed, setting cmix');
+      setCmix(loadedCmix);
+    } catch (error) {
+      console.error('LoadCmix failed:', error);
+      throw error;
+    }
   };
   useEffect(() => {
     if (decryptedPass) {
-      initializeCmix(decryptedPass).then(() => {
-        loadCmix(decryptedPass);
-      });
+      console.log('Starting cmix initialization/load sequence');
+      initializeCmix(decryptedPass)
+        .then(() => {
+          console.log('InitializeCmix complete, proceeding to loadCmix');
+          return loadCmix(decryptedPass);
+        })
+        .catch((error) => {
+          console.error('Error initializing/loading CMix:', error);
+          setStatus(NetworkStatus.FAILED);
+        });
     }
   }, [decryptedPass]);
 
@@ -220,15 +233,6 @@ const useCmix = () => {
   );
 
   useAppEventListener(AppEvents.PASSWORD_DECRYPTED, onPasswordDecryption);
-
-  useEffect(() => {
-    if (cmix) {
-      cmix.GetRemoteKV().then((rawKv) => {
-        const wrappedKv = new RemoteKVWrapper(rawKv);
-        bus.emit(AppEvents.REMOTE_KV_INITIALIZED, wrappedKv);
-      });
-    }
-  }, [cmix]);
 
   return {
     connect,

@@ -88,7 +88,15 @@ export default defineConfig({
       '.ngrok.io',
       '.ngrok-free.app',
       '.ngrok-free.dev'
-    ]
+    ],
+    fs: {
+      strict: false,
+      allow: ['..']
+    },
+    cors: true,
+    headers: {
+      'Cross-Origin-Resource-Policy': 'cross-origin'
+    }
   },
   resolve: {
     alias: {

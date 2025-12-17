@@ -1,4 +1,4 @@
-import { contrastColor as getContrastColor } from 'contrast-color';
+import ContrastColor from 'contrast-color';
 import React, { useCallback, useMemo } from 'react';
 import cn from 'classnames';
 
@@ -19,11 +19,18 @@ import Spinner from '../Spinner/Spinner';
 import useDmClient from 'src/hooks/useDmClient';
 import { useNetworkClient } from '@contexts/network-client-context';
 
-const calculateContrastColor = (color?: string) =>
-  getContrastColor({
-    bgColor: color ?? '#000',
+const contrastColorUtil = new ContrastColor();
+
+const calculateContrastColor = (color?: string) => {
+  // Skip contrast calculation for CSS variables or invalid colors
+  if (!color || color.startsWith('var(')) {
+    return 'var(--text-primary)';
+  }
+  return contrastColorUtil.contrastColor({
+    bgColor: color,
     fgLightColor: 'var(--text-primary)'
   });
+};
 
 const UserDetails = () => {
   const { setRightSidebarView } = useUI();

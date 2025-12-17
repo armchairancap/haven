@@ -4,7 +4,7 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useUtils } from 'src/contexts/utils-context';
 import { v4 as uuid } from 'uuid';
 import useAccountSync, { AccountSyncService, AccountSyncStatus } from 'src/hooks/useAccountSync';
-import useLocalStorage from 'src/hooks/useLocalStorage';
+import useKVStorage from 'src/hooks/useKVStorage';
 import { AppEvents, appBus as bus } from 'src/events';
 import { CMIX_INITIALIZATION_KEY } from 'src/constants';
 
@@ -39,10 +39,12 @@ export const AuthenticationProvider: FC<WithChildren> = (props) => {
     setStatus: setAccountSyncStatus,
     status: accountSyncStatus
   } = useAccountSync();
-  const [cmixPreviouslyInitialized, setCmixWasPreviouslyInitialized] = useLocalStorage(
+  const [cmixPreviouslyInitializedStr, setCmixWasPreviouslyInitializedStr] = useKVStorage(
     CMIX_INITIALIZATION_KEY,
-    false
+    'false'
   );
+  const cmixPreviouslyInitialized = cmixPreviouslyInitializedStr === 'true';
+  const setCmixWasPreviouslyInitialized = (value: boolean) => setCmixWasPreviouslyInitializedStr(value ? 'true' : 'false');
 
   const setSyncLoginService = useCallback(
     (service: AccountSyncService) => {

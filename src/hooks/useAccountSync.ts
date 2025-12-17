@@ -1,5 +1,5 @@
 import { ACCOUNT_SYNC, ACCOUNT_SYNC_SERVICE } from 'src/constants';
-import useLocalStorage from './useLocalStorage';
+import useKVStorage from './useKVStorage';
 import { useMemo } from 'react';
 
 export enum AccountSyncStatus {
@@ -17,11 +17,11 @@ export enum AccountSyncService {
 const NOT_SYNCED_STATUSES = [AccountSyncStatus.NotSynced, AccountSyncStatus.Ignore];
 
 const useAccountSync = () => {
-  const [status, setStatus] = useLocalStorage(ACCOUNT_SYNC, AccountSyncStatus.NotSynced);
-  const [service, setService] = useLocalStorage(ACCOUNT_SYNC_SERVICE, AccountSyncService.None);
+  const [status, setStatus] = useKVStorage(ACCOUNT_SYNC, AccountSyncStatus.NotSynced);
+  const [service, setService] = useKVStorage(ACCOUNT_SYNC_SERVICE, AccountSyncService.None);
 
   const isSynced = useMemo(
-    () => status !== null && !NOT_SYNCED_STATUSES.includes(status),
+    () => status !== null && !NOT_SYNCED_STATUSES.includes(status as AccountSyncStatus),
     [status]
   );
 

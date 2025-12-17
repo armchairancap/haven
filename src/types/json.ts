@@ -29,6 +29,11 @@ export type IsReadyInfoJSON = {
   howClose: number;
 };
 
+export type NodeRegistrationReport = {
+  NumberOfNodesRegistered: number;
+  NumberOfNodes: number;
+};
+
 export type MessageReceivedJSON = {
   uuid: number;
   channelId: string;

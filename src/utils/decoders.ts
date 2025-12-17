@@ -21,9 +21,9 @@ import {
   UserMutedEvent,
   VersionJSON,
   DMNotificationLevel,
-  ChannelDMTokenUpdate
+  ChannelDMTokenUpdate,
+  NodeRegistrationReport
 } from 'src/types';
-import { KVEntry } from 'src/types/collective';
 import { Err, JsonDecoder } from 'ts.data.json';
 import { decoder as uintDecoder } from './index';
 import {
@@ -123,6 +123,16 @@ export const isReadyInfoDecoder = makeDecoder(
   )
 );
 
+export const nodeRegistrationReportDecoder = makeDecoder(
+  JsonDecoder.object<NodeRegistrationReport>(
+    {
+      NumberOfNodesRegistered: JsonDecoder.number,
+      NumberOfNodes: JsonDecoder.number
+    },
+    'NodeRegistrationReportDecoder'
+  )
+);
+
 export const pubkeyArrayDecoder = makeDecoder(
   JsonDecoder.array<string>(JsonDecoder.string, 'PubkeyArrayDecoder')
 );
@@ -135,24 +145,6 @@ export const versionDecoder = makeDecoder(
       old: JsonDecoder.string
     },
     'VersionDecoder'
-  )
-);
-
-export const kvEntryDecoder = makeDecoder(
-  JsonDecoder.nullable(
-    JsonDecoder.object<KVEntry>(
-      {
-        data: JsonDecoder.string,
-        version: JsonDecoder.number,
-        timestamp: JsonDecoder.string
-      },
-      'KVEntryDecoder',
-      {
-        data: 'Data',
-        version: 'Version',
-        timestamp: 'Timestamp'
-      }
-    )
   )
 );
 

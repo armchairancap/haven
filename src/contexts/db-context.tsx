@@ -4,7 +4,7 @@ import { FC, useContext, useEffect } from 'react';
 import { Dexie } from 'dexie';
 import { createContext, useCallback, useState } from 'react';
 
-import useLocalStorage from 'src/hooks/useLocalStorage';
+import useKVStorage from 'src/hooks/useKVStorage';
 import { DMS_DATABASE_NAME } from 'src/constants';
 import useStorageTag from 'src/hooks/useChannelsStorageTag';
 import { AppEvents, appBus as bus } from 'src/events';
@@ -48,13 +48,18 @@ export const DBProvider: FC<WithChildren> = ({ children }) => {
   const [db, setDb] = useState<Dexie>();
   const [dmDb, setDmDb] = useState<Dexie>();
   const { value: storageTag } = useStorageTag();
-  const [dmsDatabaseName] = useLocalStorage<string | null>(DMS_DATABASE_NAME, null);
+  const [dmsDatabaseNameStr] = useKVStorage(DMS_DATABASE_NAME, '');
+  const dmsDatabaseName = dmsDatabaseNameStr || null;
   const [managerLoaded, setManagerLoaded] = useState(false);
 
   // TODO: We shouldn't need this here and should be relying on the xxdk-wasm npm package instead
   const initDb = useCallback((tag: string) => {
+    console.log('[DBContext.initDb] Opening database with tag:', tag);
     const instance = new Dexie(`${tag}_speakeasy`);
-    return instance.open().then(setDb);
+    return instance.open().then((openedDb) => {
+      console.log('[DBContext.initDb] Database opened successfully:', openedDb.name);
+      setDb(openedDb);
+    });
   }, []);
 
   const initDmsDb = useCallback((dbName: string) => {
@@ -63,8 +68,11 @@ export const DBProvider: FC<WithChildren> = ({ children }) => {
   }, []);
 
   const init = useCallback(() => {
+    console.log('[DBContext.init] Called with storageTag:', storageTag, 'dmsDatabaseName:', dmsDatabaseName);
     if (storageTag) {
       initDb(storageTag);
+    } else {
+      console.warn('[DBContext.init] storageTag is falsy, skipping initDb');
     }
 
     if (dmsDatabaseName) {
@@ -73,13 +81,17 @@ export const DBProvider: FC<WithChildren> = ({ children }) => {
   }, [dmsDatabaseName, initDb, initDmsDb, storageTag]);
 
   useEffect(() => {
+    console.log('[DBContext] useEffect triggered - managerLoaded:', managerLoaded);
     if (managerLoaded) {
       init();
     }
   }, [init, managerLoaded]);
 
   useEffect(() => {
-    const listener = () => setManagerLoaded(true);
+    const listener = () => {
+      console.log('[DBContext] CHANNEL_MANAGER_LOADED received');
+      setManagerLoaded(true);
+    };
     bus.addListener(AppEvents.CHANNEL_MANAGER_LOADED, listener);
 
     return () => {

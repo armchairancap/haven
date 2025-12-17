@@ -109,7 +109,7 @@ const ChannelHeader: FC<Props> = ({ id, isAdmin, name, privacyLevel }) => {
     toggleDmNotificationLevel(conversationId);
   }, [toggleDmNotificationLevel, conversationId]);
 
-  const toggleChannelNotifications = useCallback(() => {
+  const toggleChannelNotifications = useCallback(async () => {
     const newLevel =
       channelNotificationLevel === ChannelNotificationLevel.NotifyPing
         ? ChannelNotificationLevel.NotifyNone
@@ -120,8 +120,8 @@ const ChannelHeader: FC<Props> = ({ id, isAdmin, name, privacyLevel }) => {
         : NotificationStatus.Mute;
 
     if (currentChannel?.id) {
-      channelManager?.SetMobileNotificationsLevel(
-        utils.Base64ToUint8Array(currentChannel?.id),
+      await channelManager?.SetMobileNotificationsLevel(
+        await utils.Base64ToUint8Array(currentChannel?.id),
         newLevel,
         newState
       );

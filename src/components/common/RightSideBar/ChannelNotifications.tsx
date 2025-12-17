@@ -67,10 +67,10 @@ const ChannelNotifications = () => {
   );
 
   const changeNotificationLevel = useCallback(
-    (level: ChannelNotificationLevel) => {
+    async (level: ChannelNotificationLevel) => {
       if (currentChannel?.id) {
-        channelManager?.SetMobileNotificationsLevel(
-          utils.Base64ToUint8Array(currentChannel?.id),
+        await channelManager?.SetMobileNotificationsLevel(
+          await utils.Base64ToUint8Array(currentChannel?.id),
           ...correctInvalidNotificationStates(level, notificationStatus)
         );
       }
@@ -97,15 +97,15 @@ const ChannelNotifications = () => {
   );
 
   const changeNotificationStatus = useCallback(
-    (status: NotificationStatus) => {
+    async (status: NotificationStatus) => {
       if (currentChannel?.id) {
         const level =
           status === NotificationStatus.Mute
             ? ChannelNotificationLevel.NotifyNone
             : notificationLevel || ChannelNotificationLevel.NotifyPing;
 
-        channelManager?.SetMobileNotificationsLevel(
-          utils.Base64ToUint8Array(currentChannel?.id),
+        await channelManager?.SetMobileNotificationsLevel(
+          await utils.Base64ToUint8Array(currentChannel?.id),
           ...correctInvalidNotificationStates(level, status)
         );
       }

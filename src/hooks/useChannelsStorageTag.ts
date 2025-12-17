@@ -1,13 +1,15 @@
-import { JsonDecoder } from 'ts.data.json';
-import useRemotelySynchedValue from './useRemotelySynchedValue';
-import { makeDecoder } from '@utils/decoders';
+import useKVStorage from './useKVStorage';
 
 const KEY = 'channels-storage-tag';
 
 const useStorageTag = () => {
-  const result = useRemotelySynchedValue(KEY, makeDecoder(JsonDecoder.string));
-  console.log('Ready storage tag value:', result.value);
-  return result;
+  const [value, setValue, { loading }] = useKVStorage(KEY, '');
+  console.log('Ready storage tag value:', value);
+  return {
+    value: value || undefined,
+    set: setValue,
+    loading
+  };
 };
 
 export default useStorageTag;

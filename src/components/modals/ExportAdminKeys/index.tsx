@@ -38,13 +38,13 @@ const ExportCodenameView: FC = () => {
     }
   }, [t, getOrInitPassword, next, password]);
 
-  const onExport = useCallback(() => {
+  const onExport = useCallback(async () => {
     if (encryptionPassword !== encryptionPasswordConfirmation) {
       return setError(t('Encryption password does not match confirmation.'));
     }
 
     const filename = `${currentChannel?.name}_AdminKeys.txt`;
-    const keys = exportChannelAdminKeys(encryptionPassword);
+    const keys = await exportChannelAdminKeys(encryptionPassword);
     const blob = new Blob([keys], { type: 'text/plain' });
     saveAs(blob, filename);
     next();

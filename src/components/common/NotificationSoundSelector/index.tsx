@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, FC } from 'react';
 import Select from 'react-tailwindcss-select';
-import { useRemotelySynchedString } from 'src/hooks/useRemotelySynchedValue';
+import useKVStorage from 'src/hooks/useKVStorage';
 
 const options = [
   { label: 'Default', value: '/sounds/notification.mp3' },
@@ -14,7 +14,7 @@ const NotificationSoundSelector: FC = () => {
   const [touched, setTouched] = useState(false);
   const [play, setPlay] = useState<(() => void) | null>(null);
   const [stop, setStop] = useState<(() => void) | null>(null);
-  const { set: setNotificationSound, value: notificationSound } = useRemotelySynchedString(
+  const [notificationSound, setNotificationSound] = useKVStorage(
     'notification-sound',
     '/sounds/notification.mp3'
   );

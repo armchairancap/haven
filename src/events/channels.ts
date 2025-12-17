@@ -65,12 +65,15 @@ const channelsEventDecoderMap: { [P in keyof ChannelEventMap]: Decoder<ChannelEv
 export const channelsBus = new EventEmitter() as TypedEventEmitter<ChannelEventHandlers>;
 
 export const onChannelEvent = (eventType: ChannelEvents, data: unknown) => {
+  console.log('[onChannelEvent] Received event:', eventType, 'data:', data);
   const eventDecoder = channelsEventDecoderMap[eventType];
 
   if (!eventDecoder) {
     console.error('Unhandled channel event:', eventType, data);
   } else {
-    channelsBus.emit(eventType, eventDecoder(data) as any);
+    const decoded = eventDecoder(data);
+    console.log('[onChannelEvent] Decoded and emitting:', eventType, decoded);
+    channelsBus.emit(eventType, decoded as any);
   }
 };
 

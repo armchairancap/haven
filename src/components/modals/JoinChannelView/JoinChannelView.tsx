@@ -44,12 +44,12 @@ const JoinChannelView: FC = () => {
     }
 
     if (!needPassword) {
-      const res = getShareUrlType(url);
+      const res = await getShareUrlType(url);
 
       if (res === PrivacyLevel.Public) {
         try {
-          const prettyPrint = utils.DecodePublicURL(url);
-          joinChannel(prettyPrint, true, !!dmsEnabled);
+          const prettyPrint = await utils.DecodePublicURL(url);
+          await joinChannel(prettyPrint, true, !!dmsEnabled);
           setUrl('');
           closeModal();
         } catch (e) {
@@ -66,8 +66,8 @@ const JoinChannelView: FC = () => {
     } else {
       if (url && password) {
         try {
-          const prettyPrint = utils.DecodePrivateURL(url, password);
-          joinChannel(prettyPrint);
+          const prettyPrint = await utils.DecodePrivateURL(url, password);
+          await joinChannel(prettyPrint);
           setUrl('');
           setPassword('');
           closeModal();

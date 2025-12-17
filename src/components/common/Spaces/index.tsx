@@ -20,6 +20,7 @@ import { Join, Plus } from '@components/icons';
 
 import { XX_GENERAL_CHAT } from 'src/constants';
 import { useNetworkClient } from 'src/contexts/network-client-context';
+import { getKVValue, setKVValue } from 'src/hooks/useKVStorage';
 
 const Spaces = () => {
   const { t } = useTranslation();
@@ -61,17 +62,22 @@ const Spaces = () => {
 
   // Auto join xxGeneralChat on first load
   useEffect(() => {
-    if (channelManager && window.localStorage.getItem('spacesFirstLoad') !== 'true') {
-      setTimeout(() => {
-        try {
-          joinChannel(XX_GENERAL_CHAT, true, true);
-        } catch (e) {
-          console.error((e as Error).message);
-          throw e;
-        }
-        window.localStorage.setItem('spacesFirstLoad', 'true');
-      }, 3000);
-    }
+    if (!channelManager) return;
+
+    (async () => {
+      const spacesFirstLoad = await getKVValue<string>('spacesFirstLoad');
+      if (spacesFirstLoad !== 'true') {
+        setTimeout(async () => {
+          try {
+            joinChannel(XX_GENERAL_CHAT, true, true);
+          } catch (e) {
+            console.error((e as Error).message);
+            throw e;
+          }
+          await setKVValue('spacesFirstLoad', 'true');
+        }, 3000);
+      }
+    })();
   }, [channelManager, joinChannel]);
 
   return (

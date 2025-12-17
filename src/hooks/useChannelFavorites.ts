@@ -1,28 +1,39 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { channelFavoritesDecoder } from '@utils/decoders';
-import useRemotelySynchedValue from './useRemotelySynchedValue';
+import useKVStorage from './useKVStorage';
 
 const KEY = 'channel-favorites';
 
 const useChannelFavorites = () => {
-  const {
-    loading,
-    set,
-    value: favorites = []
-  } = useRemotelySynchedValue(KEY, channelFavoritesDecoder);
+  const [favoritesStr, setFavoritesStr, { loading }] = useKVStorage(KEY, '[]');
+
+  const favorites = useMemo(() => {
+    try {
+      const parsed = JSON.parse(favoritesStr || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [favoritesStr]);
+
+  const setFavorites = useCallback(
+    async (newFavorites: string[]) => {
+      await setFavoritesStr(JSON.stringify(newFavorites));
+    },
+    [setFavoritesStr]
+  );
 
   const toggleFavorite = useCallback(
     (channelId: string) => {
       if (!loading) {
-        set(
+        setFavorites(
           favorites.includes(channelId)
             ? favorites.filter((id) => id !== channelId)
             : favorites.concat(channelId)
         );
       }
     },
-    [favorites, loading, set]
+    [favorites, loading, setFavorites]
   );
 
   const isFavorite = useCallback(

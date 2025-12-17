@@ -1,5 +1,5 @@
-import { FC, useCallback } from 'react';
-import React, { useMemo } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Elixxir } from 'src/components/icons';
 import { useAppDispatch, useAppSelector } from 'src/store/hooks';
@@ -38,11 +38,17 @@ const Identity: FC<Props> = ({
   );
   const isBlocked = useAppSelector(dms.selectors.isBlocked(pubkey));
 
-  const { codename, color } = useMemo(
-    () => getCodeNameAndColor(pubkey, codeset),
-    [codeset, getCodeNameAndColor, pubkey]
-  );
-  const colorHex = isMuted || isBlocked ? 'var(--text-muted)' : color.replace('0x', '#');
+  const [codename, setCodename] = useState('');
+  const [color, setColor] = useState('var(--text-primary)');
+
+  useEffect(() => {
+    getCodeNameAndColor(pubkey, codeset).then(({ codename, color }) => {
+      setCodename(codename);
+      setColor(color);
+    });
+  }, [codeset, getCodeNameAndColor, pubkey]);
+
+  const colorHex = isMuted || isBlocked ? 'var(--text-muted)' : color?.replace('0x', '#') || 'var(--text-primary)';
   const codenameColor =
     isMuted || isBlocked ? 'var(--text-muted)' : nickname ? '#73767C' : colorHex;
 

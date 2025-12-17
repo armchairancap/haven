@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@components/common';
 import Modal from 'src/components/modals/Modal';
 import { useUI } from 'src/contexts/ui-context';
+import { getKVValue, setKVValue } from 'src/hooks/useKVStorage';
 
 const APP_VERSION = import.meta.env.APP_VERSION || 'Unknown';
 
@@ -15,11 +16,13 @@ const UpdatesModal = () => {
   };
 
   useEffect(() => {
-    const lastVersion = localStorage.getItem('version');
-    if (lastVersion !== APP_VERSION) {
-      setShow(true);
-      localStorage.setItem('version', APP_VERSION);
-    }
+    (async () => {
+      const lastVersion = await getKVValue<string>('version');
+      if (lastVersion !== APP_VERSION) {
+        setShow(true);
+        await setKVValue('version', APP_VERSION);
+      }
+    })();
   }, []);
 
   if (!show) return null;

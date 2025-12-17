@@ -14,10 +14,10 @@ const LogoutView: FC = () => {
   const [error, setError] = useState('');
   const [password, setPassword] = useInput('');
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (password.length) {
       setError('');
-      const result = logout(password);
+      const result = await logout(password);
       if (result) {
         closeModal();
         navigate('/');

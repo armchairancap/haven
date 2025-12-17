@@ -10,8 +10,7 @@ import * as dms from 'src/store/dms';
 import { AppEvents, useAppEventListener } from 'src/events';
 import { EasterEggs, useUI } from '@contexts/ui-context';
 import { useNetworkClient } from '@contexts/network-client-context';
-import useLocalStorage from './useLocalStorage';
-import { useRemotelySynchedString } from './useRemotelySynchedValue';
+import useKVStorage from './useKVStorage';
 import { DMNotificationLevel } from 'src/types/events';
 import {
   Message,
@@ -29,15 +28,14 @@ const useNotification = () => {
   const { triggerEasterEgg } = useUI();
   const { setNickname } = useNetworkClient();
   const db = useDb('channels');
-  const { value: notificationSound } = useRemotelySynchedString(
-    'notification-sound',
-    '/sounds/notification.mp3'
-  );
+  const [notificationSound] = useKVStorage('notification-sound', '/sounds/notification.mp3');
   const { playNotification } = useSound();
-  const [isPermissionGranted, setIsPermissionGranted] = useLocalStorage<boolean>(
+  const [isPermissionGrantedStr, setIsPermissionGrantedStr] = useKVStorage(
     'notification-permission',
-    typeof Notification !== 'undefined' && Notification?.permission === 'granted'
+    typeof Notification !== 'undefined' && Notification?.permission === 'granted' ? 'true' : 'false'
   );
+  const isPermissionGranted = isPermissionGrantedStr === 'true';
+  const setIsPermissionGranted = (value: boolean) => setIsPermissionGrantedStr(value ? 'true' : 'false');
   const notification = useRef<Notification | null>(null);
   const [permissionIgnored, setPermissionIgnored] = useSessionStorage(
     'notifications_ignored',
@@ -133,7 +131,7 @@ const useNotification = () => {
   );
 
   const notifyMentions = useCallback(
-    (message: Message) => {
+    async (message: Message) => {
       const canNotify = isUserPingableOnThisChannel(message.channelId);
 
       if (message.status === MessageStatus.Delivered && canNotify) {
@@ -146,7 +144,7 @@ const useNotification = () => {
           const mentionedPubkey = mention.getAttribute('data-id');
 
           if (mentionedPubkey === userIdentity?.pubkey) {
-            const { codename } = getCodeNameAndColor(message.pubkey, message.codeset);
+            const { codename } = await getCodeNameAndColor(message.pubkey, message.codeset);
             notifyMentioned(message.nickname || codename, message.plaintext ?? '');
             break;
           }
@@ -172,7 +170,7 @@ const useNotification = () => {
         if (replyingTo && replyingTo?.pubkey === userIdentity?.pubkey) {
           const canNotify = isUserPingableOnThisChannel(replyingTo.channel_id);
           if (canNotify) {
-            const { codename } = getCodeNameAndColor(message.pubkey, message.codeset);
+            const { codename } = await getCodeNameAndColor(message.pubkey, message.codeset);
             messageReplied(message.nickname || codename, message.plaintext ?? '');
           }
         }

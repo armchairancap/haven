@@ -35,19 +35,23 @@ const DefaultLayout: FC<WithChildren> = ({ children }) => {
   const { leftSidebarView: sidebarView, openModal, setChannelInviteLink, setModalView } = useUI();
 
   useEffect(() => {
-    const privacyLevel = getShareUrlType(window.location.href);
+    if (typeof getShareUrlType !== 'function') return;
 
-    if (
-      privacyLevel !== null &&
-      cmix &&
-      networkStatus === NetworkStatus.CONNECTED &&
-      isAuthenticated &&
-      location.search
-    ) {
-      setChannelInviteLink(window.location.href);
-      setModalView('JOIN_CHANNEL');
-      openModal();
-    }
+    (async () => {
+      const privacyLevel = await getShareUrlType(window.location.href);
+
+      if (
+        privacyLevel !== null &&
+        cmix &&
+        networkStatus === NetworkStatus.CONNECTED &&
+        isAuthenticated &&
+        location.search
+      ) {
+        setChannelInviteLink(window.location.href);
+        setModalView('JOIN_CHANNEL');
+        openModal();
+      }
+    })();
   }, [
     cmix,
     isAuthenticated,

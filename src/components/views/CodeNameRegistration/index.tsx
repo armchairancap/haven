@@ -19,12 +19,13 @@ const CodenameRegistration: FC<Props> = ({ password }) => {
   const { getOrInitPassword, setIsAuthenticated } = useAuthentication();
   const { checkRegistrationReadiness, cmix, generateIdentities } = useNetworkClient();
   const [loading, setLoading] = useState(false);
-  const [identities, setIdentites] = useState<ReturnType<typeof generateIdentities>>([]);
+  const [identities, setIdentites] = useState<Awaited<ReturnType<typeof generateIdentities>>>([]);
   const [selectedCodeName, setSelectedCodeName] = useState('');
   const [selectedPrivateIdentity, setSelectedPrivateIdentity] = useState<Uint8Array>();
   const [firstTimeGenerated, setFirstTimeGenerated] = useState(false);
 
   const [readyProgress, setReadyProgress] = useState<number>(0);
+  const [registrationStatus, setRegistrationStatus] = useState<string>('');
 
   useEffect(() => {
     getOrInitPassword(password);
@@ -32,8 +33,8 @@ const CodenameRegistration: FC<Props> = ({ password }) => {
 
   useEffect(() => {
     if (!firstTimeGenerated && cmix) {
-      setIdentites(generateIdentities(20));
-      setFirstTimeGenerated(false);
+      generateIdentities(20).then(setIdentites);
+      setFirstTimeGenerated(true);
     }
   }, [firstTimeGenerated, generateIdentities, cmix]);
 
@@ -41,21 +42,20 @@ const CodenameRegistration: FC<Props> = ({ password }) => {
     setLoading(true);
     setTimeout(async () => {
       if (selectedPrivateIdentity) {
-        checkRegistrationReadiness(selectedPrivateIdentity, (isReadyInfo) => {
-          if (isReadyInfo.isReady) {
-            setTimeout(() => {
-              setLoading(false);
-              setIsAuthenticated(true);
-            }, 3000);
-          }
-          setReadyProgress(Math.ceil((isReadyInfo?.howClose || 0) * 100));
+        checkRegistrationReadiness(selectedPrivateIdentity, (registeredNodes, totalNodes) => {
+          // Calculate progress as percentage
+          const progress = totalNodes > 0 ? Math.ceil((registeredNodes / totalNodes) * 100) : 0;
+          setReadyProgress(progress);
+          setRegistrationStatus(`${registeredNodes}/${totalNodes} nodes registered`);
+
+          // The checkRegistrationReadiness will handle completion automatically
         });
       }
     }, 500);
-  }, [checkRegistrationReadiness, selectedPrivateIdentity, setIsAuthenticated]);
+  }, [checkRegistrationReadiness, selectedPrivateIdentity]);
 
   return loading ? (
-    <ImportCodeNameLoading fullscreen readyProgress={readyProgress} />
+    <ImportCodeNameLoading fullscreen readyProgress={readyProgress} statusText={registrationStatus} />
   ) : (
     <div className='w-full flex flex-col justify-center items-center px-6'>
       <h2 data-testid='codename-registration-title' className='mt-9 mb-4'>
@@ -114,7 +114,7 @@ const CodenameRegistration: FC<Props> = ({ password }) => {
           className='disabled:opacity-50 disabled:cursor-not-allowed'
           onClick={() => {
             setSelectedCodeName('');
-            setIdentites(generateIdentities(AMOUNT_OF_IDENTITIES_TO_GENERATE));
+            generateIdentities(AMOUNT_OF_IDENTITIES_TO_GENERATE).then(setIdentites);
           }}
           disabled={!cmix}
         >

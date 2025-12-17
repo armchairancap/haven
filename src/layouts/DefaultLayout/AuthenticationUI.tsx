@@ -11,45 +11,44 @@ import { useAuthentication } from '@contexts/authentication-context';
 import { useUtils } from '@contexts/utils-context';
 import { useNetworkClient } from '@contexts/network-client-context';
 
-const AuthenticationUI: FC = () => {
-  const { displayModal, modalView = '' } = useUI();
-  const {
-    attemptingSyncedLogin,
-    cmixPreviouslyInitialized,
-    getOrInitPassword,
-    setIsAuthenticated
-  } = useAuthentication();
-  const { utils } = useUtils();
-  const { checkRegistrationReadiness, cmix, createChannelManager } = useNetworkClient();
-  const [loading, setLoading] = useState(false);
-  const [readyProgress, setReadyProgress] = useState<number>(0);
+	const AuthenticationUI: FC = () => {
+		const { displayModal, modalView = '' } = useUI();
+		const {
+			attemptingSyncedLogin,
+			cmixPreviouslyInitialized,
+			getOrInitPassword,
+		} = useAuthentication();
+		const { utils } = useUtils();
+		const { checkRegistrationReadiness, cmix } = useNetworkClient();
+		const [loading, setLoading] = useState(false);
+		const [readyProgress, setReadyProgress] = useState<number>(0);
 
-  const hasAccount = cmixPreviouslyInitialized || attemptingSyncedLogin;
-  const [importedIdentity, setImportedIdentity] = useState<Uint8Array>();
+		const hasAccount = cmixPreviouslyInitialized || attemptingSyncedLogin;
+		const [importedIdentity, setImportedIdentity] = useState<Uint8Array>();
 
-  const onImport = useCallback(
-    async ({ identity, password }: IdentityVariables) => {
-      setLoading(true);
-      const imported = utils.ImportPrivateIdentity(password, encoder.encode(identity));
-      setImportedIdentity(imported);
-      getOrInitPassword(password);
-    },
-    [getOrInitPassword, utils]
-  );
+		const onImport = useCallback(
+			async ({ identity, password }: IdentityVariables) => {
+				setLoading(true);
+				const imported = await utils.ImportPrivateIdentity(password, encoder.encode(identity));
+				setImportedIdentity(imported);
+				getOrInitPassword(password);
+			},
+			[getOrInitPassword, utils]
+		);
 
-  useEffect(() => {
-    if (cmix && importedIdentity) {
-      checkRegistrationReadiness(importedIdentity, (isReadyInfo) => {
-        setReadyProgress(Math.ceil((isReadyInfo?.howClose || 0) * 100));
-        if (isReadyInfo.isReady) {
-          createChannelManager(importedIdentity);
-          setLoading(false);
-          setReadyProgress(0);
-          setIsAuthenticated(true);
-        }
-      });
-    }
-  }, [checkRegistrationReadiness, cmix, importedIdentity, setIsAuthenticated]);
+		useEffect(() => {
+			if (cmix && importedIdentity) {
+				checkRegistrationReadiness(importedIdentity, (registeredNodes, totalNodes) => {
+					const progress =
+						totalNodes > 0 ? Math.ceil((registeredNodes / totalNodes) * 100) : 0;
+					setReadyProgress(progress);
+				})
+					.finally(() => {
+						setLoading(false);
+						setReadyProgress(0);
+					});
+			}
+		}, [checkRegistrationReadiness, cmix, importedIdentity]);
 
   if (loading) {
     return <ImportCodeNameLoading readyProgress={readyProgress} />;

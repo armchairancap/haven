@@ -21,7 +21,7 @@ export const envIsDev = () => {
 export const exportDataToFile = (data: Uint8Array) => {
   const filename = 'HavenIdentity.json';
 
-  const file = new Blob([data], { type: 'text/plain' });
+  const file = new Blob([data as BlobPart], { type: 'text/plain' });
   const a = document.createElement('a');
   const url = URL.createObjectURL(file);
   a.href = url;

@@ -1,4 +1,3 @@
-import { RemoteKV } from './collective';
 import { DMNotificationLevel } from './events';
 
 export type WithChildren = {
@@ -10,13 +9,13 @@ type HealthCallback = { Callback: (healthy: boolean) => void };
 export type CMix = {
   AddHealthCallback: (callback: HealthCallback) => number;
   GetID: () => number;
+  GetNodeRegistrationStatus: () => Promise<Uint8Array>;
   IsReady: (threshold: number) => Uint8Array;
   ReadyToSend: () => boolean;
   StartNetworkFollower: (timeoutMilliseconds: number) => void;
   StopNetworkFollower: () => void;
   WaitForNetwork: (timeoutMilliseconds: number) => Promise<void>;
   SetTrackNetworkPeriod: (periodMs: number) => void;
-  GetRemoteKV: () => Promise<RemoteKV>;
 };
 
 export type DMClient = {
@@ -43,8 +42,8 @@ export type DMClient = {
     cmixParams: Uint8Array
   ) => Promise<void>;
   GetIdentity: () => Uint8Array;
-  SetNickname: (nickname: string) => void;
-  GetNickname: () => string;
+  SetNickname: (nickname: string) => Promise<void>;
+  GetNickname: () => Promise<string>;
   GetDatabaseName: () => string;
   BlockPartner: (pubkey: Uint8Array) => Promise<void>;
   UnblockPartner: (pubkey: Uint8Array) => Promise<void>;
@@ -122,12 +121,12 @@ export type CMixParams = {
 
 export type DatabaseCipher = {
   id: number;
-  decrypt: (encrypted: string) => string;
+  decrypt: (encrypted: string) => Promise<string>;
 };
 
 export type RawCipher = {
   GetID: () => number;
-  Decrypt: (plaintext: string) => Uint8Array;
+  Decrypt: (plaintext: string) => Promise<Uint8Array>;
 };
 
 export type MuteUserAction = 'mute' | 'mute+delete';
@@ -162,7 +161,6 @@ export type UserMutedEvent = {
   unmute: boolean;
 };
 
-export * from './collective';
 export * from './db';
 export * from './emitter';
 export * from './events';
