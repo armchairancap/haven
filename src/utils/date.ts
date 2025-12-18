@@ -1,9 +1,5 @@
 import dayjs from 'dayjs';
 
-export const formatTimeAgo = (date: Date | number): string => {
-  return dayjs(date).format('HH:mm');
-};
-
 export const formatDate = (key: string, timestamp?: string): string => {
   const date = dayjs(key);
   const today = dayjs();

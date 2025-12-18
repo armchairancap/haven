@@ -76,7 +76,7 @@ export async function migrateLocalStorageToKV(): Promise<void> {
           console.log(`[Migration] Key "${key}" already exists in KV, skipping`);
         } catch {
           // Key doesn't exist in KV, migrate it
-          // Store the raw string value directly (already JSON from useLocalStorage)
+          // Store the raw string value directly (already JSON-stringified from localStorage)
           await store.Set(key, value);
           console.log(`[Migration] Migrated "${key}"`);
           migratedCount++;

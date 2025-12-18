@@ -9,7 +9,6 @@ import {
   DMNotificationsUpdateEvent,
   DMReceivedEvent,
   IdentityJSON,
-  IsReadyInfoJSON,
   MessageDeletedEvent,
   MessageReceivedEvent,
   NicknameUpdatedEvent,
@@ -19,7 +18,6 @@ import {
   NotificationUpdateEvent,
   ShareURLJSON,
   UserMutedEvent,
-  VersionJSON,
   DMNotificationLevel,
   ChannelDMTokenUpdate,
   NodeRegistrationReport
@@ -109,20 +107,6 @@ export const shareUrlDecoder = makeDecoder(
   )
 );
 
-export const isReadyInfoDecoder = makeDecoder(
-  JsonDecoder.object<IsReadyInfoJSON>(
-    {
-      isReady: JsonDecoder.boolean,
-      howClose: JsonDecoder.number
-    },
-    'IsReadyInfoDecoder',
-    {
-      isReady: 'IsReady',
-      howClose: 'HowClose'
-    }
-  )
-);
-
 export const nodeRegistrationReportDecoder = makeDecoder(
   JsonDecoder.object<NodeRegistrationReport>(
     {
@@ -135,17 +119,6 @@ export const nodeRegistrationReportDecoder = makeDecoder(
 
 export const pubkeyArrayDecoder = makeDecoder(
   JsonDecoder.array<string>(JsonDecoder.string, 'PubkeyArrayDecoder')
-);
-
-export const versionDecoder = makeDecoder(
-  JsonDecoder.object<VersionJSON>(
-    {
-      current: JsonDecoder.string,
-      updated: JsonDecoder.boolean,
-      old: JsonDecoder.string
-    },
-    'VersionDecoder'
-  )
 );
 
 export const messageReceivedEventDecoder = makeDecoder(
@@ -239,10 +212,6 @@ export const notificationUpdateEventDecoder = makeDecoder(
     },
     'NotificationUpdateEventDecoder'
   )
-);
-
-export const channelFavoritesDecoder = makeDecoder(
-  JsonDecoder.array<string>(JsonDecoder.string, 'ChannelFavoritesDecoder')
 );
 
 export const adminKeysUpdateDecoder = makeDecoder(
