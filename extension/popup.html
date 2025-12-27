@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Haven Identity Manager</title>
+  <style>
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      padding: 16px;
+      background-color: #1a1b1e;
+      color: #e0e0e0;
+    }
+    h1 {
+      font-size: 16px;
+      margin-top: 0;
+      margin-bottom: 16px;
+      color: #fff;
+    }
+    .identity-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 16px 0;
+    }
+    .identity-item {
+      background-color: #2c2e33;
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .identity-item:hover {
+      background-color: #373a40;
+    }
+    .identity-name {
+      font-weight: 500;
+      font-size: 14px;
+    }
+    .identity-url {
+      font-size: 11px;
+      color: #9ca3af;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      border-top: 1px solid #373a40;
+      padding-top: 16px;
+    }
+    button {
+      background-color: #228be6;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      flex: 1;
+    }
+    button:hover {
+      background-color: #1c7ed6;
+    }
+    button.secondary {
+      background-color: #373a40;
+    }
+    button.secondary:hover {
+      background-color: #495057;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      background-color: #25262b;
+      border: 1px solid #373a40;
+      border-radius: 4px;
+      color: white;
+      box-sizing: border-box;
+    }
+    input:focus {
+      outline: none;
+      border-color: #228be6;
+    }
+    #addForm {
+      display: none;
+      margin-top: 16px;
+      border-top: 1px solid #373a40;
+      padding-top: 16px;
+    }
+    .icon-btn {
+      background: none;
+      border: none;
+      color: #9ca3af;
+      cursor: pointer;
+      padding: 4px;
+      font-size: 14px;
+    }
+    .icon-btn:hover {
+      color: #fff;
+      background: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Identities</h1>
+  
+  <div id="identityList" class="identity-list">
+    <!-- Items will be populated here -->
+  </div>
+
+  <div id="emptyState" style="display: none; text-align: center; color: #9ca3af; font-size: 13px; margin-bottom: 16px;">
+    No identities saved yet.
+  </div>
+
+  <div class="actions">
+    <button id="showAddFormBtn">Add New</button>
+    <button id="exportBtn" class="secondary">Export</button>
+    <button id="importBtn" class="secondary">Import</button>
+    <input type="file" id="importFile" style="display: none" accept=".json">
+  </div>
+
+  <div id="addForm">
+    <div class="form-group">
+      <input type="text" id="nameInput" placeholder="Name (e.g. My Server)">
+    </div>
+    <div class="form-group">
+      <input type="text" id="urlInput" placeholder="URL (https://...)">
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button id="saveBtn">Save</button>
+      <button id="cancelBtn" class="secondary">Cancel</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
